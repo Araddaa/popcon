@@ -1,9 +1,17 @@
 import type { NextConfig } from "next";
 
+const isGithubPages = process.env.GITHUB_PAGES === 'true' || process.env.NEXT_PUBLIC_BASE_PATH === '/popcon';
+
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  output: 'export',
+  basePath: isGithubPages ? '/popcon' : '',
+  assetPrefix: isGithubPages ? '/popcon' : '',
+  images: {
+    unoptimized: true,
+  },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGithubPages ? '/popcon' : '',
+  },
   turbopack: {
     rules: {
       "*.css": {

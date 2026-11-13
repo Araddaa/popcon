@@ -1,0 +1,752 @@
+[
+  {
+    "no": "00",
+    "part": "0",
+    "name": "공통 레이아웃 (헤더·배너)",
+    "url": "모든 화면",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": "설계서 7장에 별도 URL은 없지만 모든 화면에 들어가는 요소라 첫 항목으로 정리했습니다. 숙소·판매처 관계자 메뉴는 확장 기능이 구현될 때만 열립니다."
+  },
+  {
+    "no": "01",
+    "part": "1",
+    "name": "회원가입",
+    "url": "/signup",
+    "role": "비회원",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "02",
+    "part": "1",
+    "name": "로그인",
+    "url": "/login",
+    "role": "비회원",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "03",
+    "part": "1",
+    "name": "계정 찾기 · 비밀번호 재설정",
+    "url": "/find-account",
+    "role": "비회원",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "04",
+    "part": "1",
+    "name": "마이페이지",
+    "url": "/my",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "05",
+    "part": "1",
+    "name": "내 정보 · 비밀번호 변경 · 탈퇴",
+    "url": "/my/profile",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "06",
+    "part": "1",
+    "name": "취향 설정",
+    "url": "/my/preference",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "07",
+    "part": "1",
+    "name": "가능 시간대 설정",
+    "url": "/my/availability",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "08",
+    "part": "1",
+    "name": "관계자 신청",
+    "url": "/my/partner-request",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "09",
+    "part": "1",
+    "name": "관리자 · 회원 관리",
+    "url": "/admin/members",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "10",
+    "part": "1",
+    "name": "관리자 · 관계자 신청 처리",
+    "url": "/admin/partner-requests",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": "판매처·숙소 유형 신청 건도 같은 화면에서 처리합니다. 해당 확장 기능을 하지 않으면 행사 주최 신청만 들어옵니다."
+  },
+  {
+    "no": "11",
+    "part": "1",
+    "name": "관리자 · 통계 대시보드",
+    "url": "/admin (제안)",
+    "role": "관리자",
+    "kind": "ext",
+    "feats": [],
+    "note": "설계서 7장 화면 목록에 URL이 없어 /admin 첫 화면으로 제안했습니다."
+  },
+  {
+    "no": "12",
+    "part": "1",
+    "name": "관리자 · 신고 처리",
+    "url": "/admin/reports (제안)",
+    "role": "관리자",
+    "kind": "ext",
+    "feats": [],
+    "note": "설계서 7장에 URL이 없어 추가 제안한 화면입니다. 펀딩 신고는 /admin/fundings, 상품 신고는 /admin/products 에서 따로 처리합니다."
+  },
+  {
+    "no": "13",
+    "part": "1",
+    "name": "모임 만들기 (언제 볼래)",
+    "url": "/gatherings/new",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "14",
+    "part": "1",
+    "name": "모임 방",
+    "url": "/gatherings/{token}",
+    "role": "참여자(회원·비회원)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "15",
+    "part": "1",
+    "name": "티켓북",
+    "url": "/my/ticketbook",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "16",
+    "part": "1",
+    "name": "연말 결산",
+    "url": "/my/recap/{year}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "17",
+    "part": "1",
+    "name": "결산 공유 (공개)",
+    "url": "/recap/{shareToken}",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "18",
+    "part": "1",
+    "name": "펀딩 목록",
+    "url": "/fundings",
+    "role": "전체",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "19",
+    "part": "1",
+    "name": "펀딩 상세",
+    "url": "/fundings/{id}",
+    "role": "전체",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "20",
+    "part": "1",
+    "name": "펀딩 개설",
+    "url": "/fundings/new",
+    "role": "유저·관계자",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "21",
+    "part": "1",
+    "name": "내 펀딩 관리 (개설자)",
+    "url": "/my/fundings",
+    "role": "유저",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "22",
+    "part": "1",
+    "name": "내 펀딩 참여 내역",
+    "url": "/my/pledges",
+    "role": "유저",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "23",
+    "part": "1",
+    "name": "관리자 · 펀딩 심사·신고",
+    "url": "/admin/fundings",
+    "role": "관리자",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "24",
+    "part": "2",
+    "name": "메인",
+    "url": "/",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "25",
+    "part": "2",
+    "name": "행사 목록 · 검색",
+    "url": "/events",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "26",
+    "part": "2",
+    "name": "자연어 검색 결과",
+    "url": "/search?q=",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "27",
+    "part": "2",
+    "name": "행사 상세",
+    "url": "/events/{id}",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "28",
+    "part": "2",
+    "name": "일정 캘린더",
+    "url": "/calendar",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "29",
+    "part": "2",
+    "name": "지도 탐색",
+    "url": "/map",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "30",
+    "part": "2",
+    "name": "찜 목록",
+    "url": "/my/wishlist",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "31",
+    "part": "2",
+    "name": "관계자 · 내 행사 관리",
+    "url": "/partner/events",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "32",
+    "part": "2",
+    "name": "관계자 · 행사 등록",
+    "url": "/partner/events/new",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "33",
+    "part": "2",
+    "name": "관리자 · 행사 승인",
+    "url": "/admin/events",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "34",
+    "part": "2",
+    "name": "관리자 · 수집 관리",
+    "url": "/admin/collect",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "35",
+    "part": "2",
+    "name": "관리자 · 수집 이력",
+    "url": "/admin/collect/logs",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "36",
+    "part": "2",
+    "name": "관리자 · 수집 검수",
+    "url": "/admin/collect/review",
+    "role": "관리자",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "37",
+    "part": "2",
+    "name": "관련 상품 모아 보기",
+    "url": "/events/{id}/products, /products",
+    "role": "전체",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "38",
+    "part": "2",
+    "name": "판매처 · 상품 관리",
+    "url": "/partner/seller, /partner/products",
+    "role": "관계자(판매처)",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "39",
+    "part": "2",
+    "name": "판매처 · 성과",
+    "url": "/partner/products/stats",
+    "role": "관계자(판매처)",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "40",
+    "part": "2",
+    "name": "관리자 · 판매처·상품 심사",
+    "url": "/admin/products",
+    "role": "관리자",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "41",
+    "part": "2",
+    "name": "외부 이동 경유",
+    "url": "/go/{linkId}",
+    "role": "전체",
+    "kind": "ext",
+    "feats": [],
+    "note": "사용자가 보는 화면이라기보다 서버 경유 주소입니다. 안내를 상품 영역에서 이미 보여 주면 이 화면은 즉시 이동만 해도 됩니다."
+  },
+  {
+    "no": "42",
+    "part": "3",
+    "name": "배치도 목록",
+    "url": "/partner/layouts",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "43",
+    "part": "3",
+    "name": "배치도 편집기",
+    "url": "/partner/layouts/{id}/edit",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "44",
+    "part": "3",
+    "name": "등급·가격 설정",
+    "url": "/partner/events/{id}/grades",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "45",
+    "part": "3",
+    "name": "회차 선택",
+    "url": "/booking/{eventId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "46",
+    "part": "3",
+    "name": "예매 오픈 대기실",
+    "url": "/booking/schedule/{scheduleId}/queue",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "47",
+    "part": "3",
+    "name": "좌석 선택",
+    "url": "/booking/schedule/{scheduleId}/seats",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "48",
+    "part": "3",
+    "name": "결제",
+    "url": "/booking/pay",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "49",
+    "part": "3",
+    "name": "예매 완료",
+    "url": "/booking/complete/{reservationNo}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "50",
+    "part": "3",
+    "name": "예매 내역",
+    "url": "/my/reservations",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "51",
+    "part": "3",
+    "name": "예매 상세",
+    "url": "/my/reservations/{reservationNo}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "52",
+    "part": "3",
+    "name": "관계자 · 판매 현황",
+    "url": "/partner/events/{id}/sales",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "53",
+    "part": "3",
+    "name": "그룹 예매 방 (같이 고르기)",
+    "url": "/booking/group/{token}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "54",
+    "part": "3",
+    "name": "모바일 티켓",
+    "url": "/my/tickets/{ticketId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "55",
+    "part": "3",
+    "name": "검표",
+    "url": "/partner/checkin/{scheduleId}",
+    "role": "관계자(행사 주최)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "56",
+    "part": "3",
+    "name": "양도 보내기",
+    "url": "/my/tickets/{ticketId}/transfer",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "57",
+    "part": "3",
+    "name": "양도 받기",
+    "url": "/transfer/{transferId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "58",
+    "part": "4",
+    "name": "취소표 대기 신청",
+    "url": "/waitlist/schedule/{scheduleId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "59",
+    "part": "4",
+    "name": "내 대기 현황",
+    "url": "/my/waitlist",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "60",
+    "part": "4",
+    "name": "우선 구매권",
+    "url": "/waitlist/offer/{waitlistId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "61",
+    "part": "4",
+    "name": "추천",
+    "url": "/recommend",
+    "role": "유저 (비회원은 인기순)",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "62",
+    "part": "4",
+    "name": "하루 코스 추천",
+    "url": "/recommend/course?eventId=&date=",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "63",
+    "part": "4",
+    "name": "알림함",
+    "url": "/my/notifications",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "64",
+    "part": "4",
+    "name": "추첨 응모",
+    "url": "/lottery/{lotteryId}",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "65",
+    "part": "4",
+    "name": "내 응모",
+    "url": "/my/lottery",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "66",
+    "part": "4",
+    "name": "추첨 검증",
+    "url": "/lottery/{lotteryId}/verify",
+    "role": "전체",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "67",
+    "part": "4",
+    "name": "취향 월드컵",
+    "url": "/taste/worldcup",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "68",
+    "part": "4",
+    "name": "취향 월드컵 결과",
+    "url": "/taste/result",
+    "role": "유저",
+    "kind": "core",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "69",
+    "part": "4",
+    "name": "숙소 찾기",
+    "url": "/stays?eventId=&date=",
+    "role": "전체",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "70",
+    "part": "4",
+    "name": "숙소 상세 · 예약",
+    "url": "/stays/{id}, /stays/{id}/book",
+    "role": "유저",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "71",
+    "part": "4",
+    "name": "내 숙소 예약",
+    "url": "/my/stays",
+    "role": "유저",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "72",
+    "part": "4",
+    "name": "숙소 · 객실 · 재고 관리",
+    "url": "/partner/stays, /partner/stays/{id}/calendar",
+    "role": "관계자(숙소)",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "73",
+    "part": "4",
+    "name": "숙소 예약 현황",
+    "url": "/partner/stays/{id}/reservations",
+    "role": "관계자(숙소)",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  },
+  {
+    "no": "74",
+    "part": "4",
+    "name": "관리자 · 숙소 승인",
+    "url": "/admin/stays",
+    "role": "관리자",
+    "kind": "ext",
+    "feats": [],
+    "note": ""
+  }
+]
