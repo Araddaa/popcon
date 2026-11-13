@@ -18,6 +18,7 @@ import {
   Trash2,
   Plus,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   MapPin,
   Eye,
@@ -63,22 +64,45 @@ interface AdminConsoleProps {
 
 export type CustomSeatGrade = 'op' | 'vip' | 'r' | 's' | 'a' | 'wheelchair' | 'empty';
 export type StageStyle = 'proscenium' | 'thrust_t' | 'circular_arena' | 'runway';
+export type WizardStep = 1 | 2 | 3 | 4 | 5;
+export type AdminMainSection = 'wizard' | 'users' | 'audit';
 
 export const AdminConsole: React.FC<AdminConsoleProps> = ({
   onClose,
   isStandalonePage = false,
 }) => {
-  // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<
-    'users' | 'event' | 'map' | 'seats' | 'policies' | 'audit'
-  >('users');
+  // Navigation Tabs & Stepper State
+  const [mainSection, setMainSection] = useState<'wizard' | 'users' | 'audit'>('wizard');
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const tabParam = p.get('adminTab');
-      if (tabParam && ['users', 'event', 'map', 'seats', 'policies', 'audit'].includes(tabParam)) {
-        setActiveTab(tabParam as any);
+      if (tabParam === 'users') {
+        setMainSection('users');
+      } else if (tabParam === 'audit') {
+        setMainSection('audit');
+      } else if (tabParam === 'event') {
+        setMainSection('wizard');
+        setWizardStep(1);
+      } else if (tabParam === 'map') {
+        setMainSection('wizard');
+        setWizardStep(2);
+      } else if (tabParam === 'seats') {
+        setMainSection('wizard');
+        setWizardStep(3);
+      } else if (tabParam === 'policies') {
+        setMainSection('wizard');
+        setWizardStep(4);
+      } else if (tabParam === 'review') {
+        setMainSection('wizard');
+        setWizardStep(5);
+      }
+      const stepParam = p.get('step');
+      if (stepParam && ['1', '2', '3', '4', '5'].includes(stepParam)) {
+        setMainSection('wizard');
+        setWizardStep(parseInt(stepParam) as 1 | 2 | 3 | 4 | 5);
       }
       if (p.get('kopisModal') === 'true') {
         setIsKopisModalOpen(true);
@@ -582,96 +606,987 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation Menu */}
-        <div className="bg-stone-50 border-b-2 border-stone-900 px-4 sm:px-8 py-2.5 overflow-x-auto scrollbar-none flex items-center gap-2">
+        {/* Primary Section Switcher & Stepper */}
+        <div className="bg-stone-50 border-b-2 border-stone-900 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
           
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-rose-500 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>1. 회원 관리 &amp; 이용 정지</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${activeTab === 'users' ? 'bg-white text-rose-700' : 'bg-stone-200 text-stone-700'}`}>
-              {members.length}
-            </span>
-          </button>
+          {/* Main 3 Sections */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
+            <button
+              type="button"
+              onClick={() => setMainSection('wizard')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
+                mainSection === 'wizard'
+                  ? 'bg-amber-400 text-stone-950 shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
+                  : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-stone-950" />
+              <span>🎪 행사 등록 &amp; 공간 스튜디오</span>
+              <span className="px-2 py-0.5 rounded-full text-[9px] bg-stone-900 text-amber-300 font-mono font-bold">
+                5단계 순차 등록
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('event')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'event'
-                ? 'bg-amber-400 text-stone-950 shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>2. 행사 정보 &amp; 포스터</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setMainSection('users')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
+                mainSection === 'users'
+                  ? 'bg-rose-500 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
+                  : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>👥 회원 관리 &amp; 제재</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${mainSection === 'users' ? 'bg-white text-rose-700 font-bold' : 'bg-stone-200 text-stone-700'}`}>
+                {members.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'map'
-                ? 'bg-emerald-500 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <MapPin className="w-4 h-4" />
-            <span>3. 오시는 길 &amp; 지도 위치 피커</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setMainSection('audit')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
+                mainSection === 'audit'
+                  ? 'bg-stone-800 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
+                  : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>📜 보안 감사 로그</span>
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('seats')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'seats'
-                ? 'bg-purple-600 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>4. 범용 공간 &amp; 좌석 스튜디오</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-amber-300 text-stone-950 font-black">
-              5대 공간 지원
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('policies')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'policies'
-                ? 'bg-sky-500 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>5. 티켓팅 오픈 &amp; 워룸 정책</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === 'audit'
-                ? 'bg-stone-800 text-white shadow-[2px_2px_0px_#1c1917] border-2 border-stone-900'
-                : 'text-stone-700 hover:bg-stone-200/70 border border-transparent'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            <span>6. 관리자 감사 로그</span>
-          </button>
-
+          {mainSection === 'wizard' && (
+            <div className="text-xs font-mono font-bold text-stone-600 bg-stone-200/70 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>진행 중: STEP {wizardStep} / 5</span>
+            </div>
+          )}
         </div>
+
+        {/* Wizard Progress Stepper (Only visible in wizard mode) */}
+        {mainSection === 'wizard' && (
+          <div className="bg-stone-100/80 border-b-2 border-stone-900 px-4 sm:px-8 py-3.5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-stone-950 font-mono">
+                    STEP {wizardStep} OF 5
+                  </span>
+                  <h2 className="text-sm sm:text-base font-black text-stone-900">
+                    {wizardStep === 1 && '1단계: 행사 기본 정보 & 포스터 등록'}
+                    {wizardStep === 2 && '2단계: 행사장 위치 및 오시는 길 (지도 피커 & KOPIS)'}
+                    {wizardStep === 3 && '3단계: 공간 & 좌석/부스 배치 설계 (카테고리 맞춤)'}
+                    {wizardStep === 4 && '4단계: 티켓팅 오픈 & 대기열 워룸 정책'}
+                    {wizardStep === 5 && '5단계: 최종 등록 검토 & 실시간 라이브 발행'}
+                  </h2>
+                </div>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  {wizardStep === 1 && '행사 타이틀, 부제, 카테고리 태그, 관람 기간, 연령 등급, 포스터 및 출연진/MD 안내를 입력합니다.'}
+                  {wizardStep === 2 && 'KOPIS 시설 정보 연동 또는 지도 핀을 직접 클릭/드래그하여 행사장 위치와 교통/주차를 확정합니다.'}
+                  {wizardStep === 3 && '선택한 카테고리에 최적화된 좌석도(샤롯데/KSPO 등), 팝업스토어 부스, 콜라보 카페 테이블, 전시 동선을 설계합니다.'}
+                  {wizardStep === 4 && '공식 티켓팅 오픈 일시, 1인당 구매 제한, 동시 대기열 수용량(TPS), 취소환불 정책을 설정합니다.'}
+                  {wizardStep === 5 && '등록된 모든 정보를 최종 확인하고 공식 서비스 피드 및 예매 시스템에 실시간으로 라이브 발행합니다.'}
+                </p>
+              </div>
+
+              {/* 5-Step Stepper Horizontal Buttons */}
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+                {[
+                  { step: 1, label: '1. 기본 정보', icon: FileText },
+                  { step: 2, label: '2. 장소·지도', icon: MapPin },
+                  { step: 3, label: '3. 공간·배치', icon: Layers },
+                  { step: 4, label: '4. 티켓팅 정책', icon: Clock },
+                  { step: 5, label: '5. 검토·발행', icon: CheckCircle },
+                ].map((s) => {
+                  const isCurrent = wizardStep === s.step;
+                  const isDone = wizardStep > s.step;
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.step}
+                      type="button"
+                      onClick={() => setWizardStep(s.step as WizardStep)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-stone-900 text-amber-300 border-2 border-stone-900 shadow-[2px_2px_0px_#f59e0b]'
+                          : isDone
+                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
+                          : 'bg-white border border-stone-300 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {isDone ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                      <span>{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Body */}
         <div className="p-4 sm:p-8 space-y-6">
 
+                    {/* ========================================================= */}
+          {/* SECTION 1: 5-STEP EVENT CREATION WIZARD (행사 순차 등록 스텝퍼) */}
+          {/* ========================================================= */}
+          {mainSection === 'wizard' && (
+            <div className="space-y-6">
+              
+              {/* ========================================================= */}
+          {/* TAB 2: 행사 정보 & 포스터 관리 (EVENT CONTENT & POSTER) */}
+          {/* ========================================================= */}
+          {wizardStep === 1 && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              <div className="lg:col-span-2 space-y-5 bg-white p-6 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917]">
+                <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-3 border-b-2 border-stone-200">
+                  <FileText className="w-5 h-5 text-amber-500" />
+                  <span>행사 기본 정보 및 타이틀 설정</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-stone-700">행사 공식 타이틀 *</label>
+                    <input
+                      type="text"
+                      value={eventTitle}
+                      onChange={(e) => setEventTitle(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-400 focus:outline-hidden"
+                      placeholder="예: 뮤지컬 데스노트 2027 월드투어 서울"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-stone-700">인용 서브 슬로건 / 부제</label>
+                    <input
+                      type="text"
+                      value={eventSubtitle}
+                      onChange={(e) => setEventSubtitle(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-400 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">행사 카테고리 태그</label>
+                    <select
+                      value={eventCategory}
+                      onChange={(e) => setEventCategory(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold bg-white focus:outline-hidden"
+                    >
+                      <option value="performance">🎭 공연 (뮤지컬 / 콘서트 / 연극)</option>
+                      <option value="popup">🛍️ 팝업스토어 (브랜드 / 캐릭터)</option>
+                      <option value="collab_cafe">☕ 콜라보 카페 / F&amp;B</option>
+                      <option value="exhibition">🖼️ 전시회 (미디어아트 / 갤러리)</option>
+                      <option value="festival">🏕️ 야외 페스티벌 (뮤직 / 푸드)</option>
+                      <option value="movie">🎬 영화 / GV / 시사회</option>
+                    </select>
+                  </div>
+
+                  {/* Category to Space Studio Quick Link */}
+                  <div className="sm:col-span-2 bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {eventCategory === 'popup' ? '🛍️' : eventCategory === 'collab_cafe' ? '☕' : eventCategory === 'exhibition' ? '🖼️' : eventCategory === 'festival' ? '🏕️' : '🎭'}
+                      </span>
+                      <div>
+                        <div className="text-xs font-black text-purple-950">
+                          맞춤 공간 엔진 연동: [{eventCategory === 'popup' ? '🛍️ 팝업스토어 (부스/타임정원)' : eventCategory === 'collab_cafe' ? '☕ 콜라보 카페 (테이블배치)' : eventCategory === 'exhibition' ? '🖼️ 전시회 (섹션/도슨트)' : eventCategory === 'festival' ? '🏕️ 야외 페스티벌 (스탠딩/피크닉)' : '🎭 공연·뮤지컬 (지정좌석)'}]
+                        </div>
+                        <div className="text-[11px] text-purple-700 mt-0.5">
+                          {eventCategory === 'popup' && 'MD판매대, 포토존, 럭키가챠, DIY존 및 30분 타임정원을 설계합니다.'}
+                          {eventCategory === 'collab_cafe' && '2인/4인 부스석, 바 카운터 및 70분 타임제 테이블 맵을 설정합니다.'}
+                          {eventCategory === 'exhibition' && '1~5전시실 룸 테마, 일방통행 관람동선 및 도슨트 투어를 설계합니다.'}
+                          {eventCategory === 'festival' && '메인 스테이지, 스탠딩 A/B 구역 및 피크닉 돗자리 존을 배치합니다.'}
+                          {eventCategory === 'performance' && '부채꼴 아치, T자 돌출무대, 발코니 및 VIP/R/S 좌석을 배치합니다.'}
+                          {eventCategory === 'movie' && '스크린 및 전석 지정석 시야각을 배치합니다.'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(3)}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto shrink-0 transition-transform active:scale-95"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>맞춤 공간 설계기로 이동</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">관람 연령 등급</label>
+                    <input
+                      type="text"
+                      value={eventAgeRating}
+                      onChange={(e) => setEventAgeRating(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">관람 기간 (시작일)</label>
+                    <input
+                      type="date"
+                      value={eventPeriodStart}
+                      onChange={(e) => setEventPeriodStart(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">관람 기간 (종료일)</label>
+                    <input
+                      type="date"
+                      value={eventPeriodEnd}
+                      onChange={(e) => setEventPeriodEnd(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">러닝타임 / 인터미션</label>
+                    <input
+                      type="text"
+                      value={eventRunningTime}
+                      onChange={(e) => setEventRunningTime(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">대표 티켓 가격 요약</label>
+                    <input
+                      type="text"
+                      value={eventPriceSummary}
+                      onChange={(e) => setEventPriceSummary(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-stone-700">포스터 이미지 URL</label>
+                    <input
+                      type="text"
+                      value={eventPosterUrl}
+                      onChange={(e) => setEventPosterUrl(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-mono"
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-bold text-stone-400">추천 프리셋:</span>
+                      {posterPresets.map((p) => (
+                        <button
+                          key={p.title}
+                          type="button"
+                          onClick={() => setEventPosterUrl(p.url)}
+                          className="px-2 py-0.5 bg-stone-100 hover:bg-amber-100 rounded text-[10px] font-bold text-stone-700 border border-stone-200"
+                        >
+                          {p.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-stone-700">행사 상세 소개 &amp; 시놉시스</label>
+                    <textarea
+                      rows={5}
+                      value={eventDescription}
+                      onChange={(e) => setEventDescription(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-amber-400 font-sans"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-stone-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-stone-800 uppercase tracking-wider">
+                      캐스팅 라인업 (주요 출연진 &amp; 배역)
+                    </h4>
+                    <span className="text-[11px] text-stone-400 font-mono">총 {castList.length}명 등록됨</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {castList.map((c) => (
+                      <div
+                        key={c.id}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-stone-900"
+                      >
+                        <span className="text-amber-800">{c.role}</span>
+                        <span className="text-stone-400">|</span>
+                        <span>{c.actor}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCast(c.id)}
+                          className="text-stone-400 hover:text-rose-600 ml-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="text"
+                      value={newRoleInput}
+                      onChange={(e) => setNewRoleInput(e.target.value)}
+                      placeholder="배역명 (예: 야가미 라이토)"
+                      className="w-1/3 px-3 py-1.5 border border-stone-300 rounded-xl text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={newActorInput}
+                      onChange={(e) => setNewActorInput(e.target.value)}
+                      placeholder="배우명 (예: 홍광호)"
+                      className="w-1/3 px-3 py-1.5 border border-stone-300 rounded-xl text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCast}
+                      className="px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>캐스트 추가</span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white p-5 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] space-y-4 sticky top-6">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                    <span className="text-xs font-black text-stone-900 uppercase">
+                      실시간 행사 상세 프리뷰
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                      LIVE PREVIEW
+                    </span>
+                  </div>
+
+                  <div className="aspect-3/4 rounded-2xl overflow-hidden border-2 border-stone-900 shadow-md relative bg-stone-100">
+                    <img
+                      src={eventPosterUrl}
+                      alt={eventTitle}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as any).src =
+                          'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80';
+                      }}
+                    />
+                    <div className="absolute top-3 left-3 bg-rose-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase shadow-xs">
+                      {eventCategory.toUpperCase()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h4 className="font-black text-stone-900 text-base leading-tight">
+                      {eventTitle}
+                    </h4>
+                    <p className="text-xs text-stone-500 line-clamp-1">{eventSubtitle}</p>
+                    <div className="pt-2 text-xs space-y-1 text-stone-600 font-medium">
+                      <div>
+                        📅 <span className="font-bold text-stone-800">일정:</span> {eventPeriodStart} ~ {eventPeriodEnd}
+                      </div>
+                      <div>
+                        ⏱️ <span className="font-bold text-stone-800">러닝타임:</span> {eventRunningTime}
+                      </div>
+                      <div>
+                        🎫 <span className="font-bold text-stone-800">가격:</span> {eventPriceSummary}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      showToast('💾 행사 기본 정보와 포스터 설정이 임시 저장되었습니다.');
+                    }}
+                    className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer"
+                  >
+                    이 내용으로 행사 저장하기
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+              {/* ========================================================= */}
+          {/* TAB 3: 오시는 길 & 대화형 지도 위치 피커 (MAP LOCATION PICKER) */}
+          {/* ========================================================= */}
+          {wizardStep === 2 && (
+            <div className="space-y-6">
+              
+              {/* KOPIS API & Venue Presets Bar */}
+              <div className="bg-white p-5 border-2 border-stone-900 rounded-3xl shadow-[4px_4px_0px_#1c1917] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🏛️</span>
+                    <div>
+                      <h4 className="font-black text-sm text-stone-900">
+                        KOPIS 공공데이터 &amp; 스마트 베뉴 공간 데이터베이스 (좌석·도면 자동 연동)
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        장소를 선택하면 공공 API 시설코드 및 실제 극장 좌석도 / 팝업스토어 부스 도면이 자동 동기화됩니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsKopisModalOpen(true)}
+                    className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl border border-stone-900 shadow-xs cursor-pointer transition-all"
+                  >
+                    <Radio className="w-3.5 h-3.5 text-stone-950" />
+                    <span>KOPIS API 연동 원리 확인</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                  {venuePresets.map((preset) => {
+                    const isSelected = venueName === preset.name;
+                    return (
+                      <button
+                        key={preset.name}
+                        onClick={() => handleSelectVenuePreset(preset)}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between relative ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-600 shadow-[3px_3px_0px_#059669] ring-2 ring-emerald-400'
+                            : 'bg-stone-50 border-stone-300 hover:border-stone-900 hover:bg-white text-stone-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-base">
+                              {preset.category === 'popup' ? '🛍️' : preset.category === 'collab_cafe' ? '☕' : preset.category === 'exhibition' ? '🖼️' : preset.category === 'festival' ? '🏕️' : '🎭'}
+                            </span>
+                            <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700'
+                            }`}>
+                              {preset.kopisId?.startsWith('FC') ? `KOPIS:${preset.kopisId}` : '매퍼연동'}
+                            </span>
+                          </div>
+                          <div className="font-black text-xs line-clamp-1">{preset.name}</div>
+                          <div className="text-[10px] text-stone-500 font-mono mt-0.5">{preset.seatScaleDesc}</div>
+                        </div>
+
+                        <div className="mt-2 pt-1.5 border-t border-stone-200 flex items-center justify-between text-[10px] font-bold">
+                          <span className="text-emerald-700 font-mono line-clamp-1">{preset.layoutPresetName}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-300 text-[11px] text-emerald-950 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      현재 선택: <strong>[{venueName}]</strong> — {selectedKopisData?.apiSyncStatus || '동기화 완료'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep(3)}
+                    className="font-bold text-emerald-800 hover:underline shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>이 베뉴의 공간 배치도 보기</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid: Coordinates & Fields + Live Map Preview */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Form (5 cols) */}
+                <div className="lg:col-span-5 bg-white p-6 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] space-y-4">
+                  <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-2 border-b border-stone-200">
+                    <MapPin className="w-5 h-5 text-emerald-600" />
+                    <span>행사장 위치 및 지도 피커 정보</span>
+                  </h3>
+
+                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 font-bold flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>💡 직접 위치 고르기 안내:</strong><br />
+                      오른쪽 지도 위를 <strong>클릭</strong>하거나 <strong>노란 핀을 원하는 곳으로 드래그</strong>하면 실시간으로 좌표와 주소가 이 화면에 자동 반영됩니다!
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">행사장 / 공연장 명칭 *</label>
+                    <input
+                      type="text"
+                      value={venueName}
+                      onChange={(e) => setVenueName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-400 focus:outline-hidden"
+                      placeholder="예: 디큐브 링크아트센터 대극장"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">도로명 주소 *</label>
+                    <input
+                      type="text"
+                      value={venueAddress}
+                      onChange={(e) => setVenueAddress(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-400 focus:outline-hidden"
+                      placeholder="예: 서울특별시 구로구 경인로 662 디큐브시티 7층"
+                    />
+                  </div>
+
+                  {/* Coordinates */}
+                  <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
+                    <div className="text-[11px] font-bold text-stone-500 flex items-center justify-between">
+                      <span>실시간 GPS 좌표 (Latitude / Longitude)</span>
+                      <button
+                        onClick={() => setMapRefreshKey(Date.now())}
+                        className="text-emerald-700 hover:underline flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>지도 새로고침</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-stone-600">위도 (Lat)</label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={venueLat}
+                          onChange={(e) => setVenueLat(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-stone-600">경도 (Lng)</label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={venueLng}
+                          onChange={(e) => setVenueLng(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">대중교통 지하철 도보 안내</label>
+                    <textarea
+                      rows={2}
+                      value={venueTransit}
+                      onChange={(e) => setVenueTransit(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-stone-300 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700">주차 요금 및 관람객 할인 팁</label>
+                    <textarea
+                      rows={2}
+                      value={venueParking}
+                      onChange={(e) => setVenueParking(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-stone-300 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setMapRefreshKey(Date.now());
+                      showToast(`📍 [${venueName}] 지도 설정이 저장되었습니다.`);
+                    }}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-sm cursor-pointer"
+                  >
+                    지도 위치 확정 및 저장
+                  </button>
+
+                </div>
+
+                {/* Live Interactive Map Preview with Click-To-Pick (7 cols) */}
+                <div className="lg:col-span-7 bg-white p-5 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] flex flex-col space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-black text-stone-900">
+                        대화형 위치 피커 지도 (지도를 클릭하거나 핀을 드래그하세요)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded">
+                      {venueLat.toFixed(4)}, {venueLng.toFixed(4)}
+                    </span>
+                  </div>
+
+                  {/* Interactive Leaflet Map iframe */}
+                  <div className="w-full flex-1 min-h-[480px] rounded-xl overflow-hidden border-2 border-stone-900 shadow-inner relative">
+                    <iframe
+                      key={mapRefreshKey}
+                      src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/venue-map.html?lat=${venueLat}&lng=${venueLng}&name=${encodeURIComponent(
+                        venueName
+                      )}&address=${encodeURIComponent(venueAddress)}`}
+                      className="w-full h-full min-h-[480px] border-0"
+                      title="실시간 공연장 오시는 길 지도 & 위치 피커"
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-stone-500">
+                    🎯 지도 상단 검색창에 건물명을 검색하거나, 지도 위 원하는 지점을 클릭하면 실시간으로 핀이 옮겨지며 좌측 입력폼에 위경도가 즉시 연동됩니다.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+              {/* ========================================================================= */}
+          {/* TAB 4: 유니버설 공간 & 배치 스튜디오 (UNIVERSAL SPACE & SEAT STUDIO) */}
+          {/* ========================================================================= */}
+          {wizardStep === 3 && (
+            <UniversalSpaceStudio
+              venueName={venueName}
+              eventCategory={eventCategory}
+              onShowToast={showToast}
+            />
+          )}
+
+              {/* ========================================================= */}
+          {/* TAB 5: 티켓팅 오픈 & 정책 (POLICIES & WAR ROOM) */}
+          {/* ========================================================= */}
+          {wizardStep === 4 && (
+            <div className="max-w-4xl mx-auto bg-white border-2 border-stone-900 rounded-2xl p-6 sm:p-8 shadow-[4px_4px_0px_#1c1917] space-y-6">
+              <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-3 border-b border-stone-200">
+                <Clock className="w-5 h-5 text-sky-500" />
+                <span>티켓팅 오픈 시간 및 대기열 워룸 정책</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-700">티켓팅 공식 오픈 일시 *</label>
+                  <input
+                    type="datetime-local"
+                    value={ticketOpenDateTime}
+                    onChange={(e) => setTicketOpenDateTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-mono font-bold"
+                  />
+                  <p className="text-[11px] text-stone-400">
+                    지정된 시각 정각에 대기열 팝업과 좌석 선택창이 자동 오픈됩니다.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-700">1인당 최대 예매 한도</label>
+                  <select
+                    value={maxTicketsPerUser}
+                    onChange={(e) => setMaxTicketsPerUser(parseInt(e.target.value))}
+                    className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold bg-white"
+                  >
+                    <option value={2}>1인 2매 제한 (엄격한 암표 방지)</option>
+                    <option value={4}>1인 4매 제한 (표준 패밀리/친구 권장)</option>
+                    <option value={6}>1인 6매 제한</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-700">동시 대기열 허용 트래픽 수용치 (TPS)</label>
+                  <input
+                    type="text"
+                    value={queueTrafficCap}
+                    onChange={(e) => setQueueTrafficCap(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-mono font-bold"
+                  />
+                  <p className="text-[11px] text-stone-400">
+                    초과 접속 시 팝콘 가상 대기열 화면(대기 번호표)으로 자동 격리됩니다.
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enable10sCountdown}
+                      onChange={(e) => setEnable10sCountdown(e.target.checked)}
+                      className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-xs font-black text-stone-900">
+                        10초 전 '팝콘 팡팡' 오버레이 카운트다운 강제 활성화
+                      </div>
+                      <div className="text-[10px] text-stone-500">
+                        오픈 10초 전 전체 화면에 노란 팝콘이 팡팡 튀며 심장박동 사운드가 재생됩니다.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableGroupSplit}
+                      onChange={(e) => setEnableGroupSplit(e.target.checked)}
+                      className="w-4 h-4 rounded accent-purple-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-xs font-black text-stone-900">
+                        동행 1/N 연석 분할 결제 방 허용
+                      </div>
+                      <div className="text-[10px] text-stone-500">
+                        주최사가 승인한 회차에 한해 친구 초대 후 5분간 좌석을 홀드하고 각자 결제할 수 있습니다.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableWaitlist}
+                      onChange={(e) => setEnableWaitlist(e.target.checked)}
+                      className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-xs font-black text-stone-900">
+                        매진 회차 취소표 대기열(Waitlist) 자동 오픈
+                      </div>
+                      <div className="text-[10px] text-stone-500">
+                        전석 매진 즉시 대기열 등록을 열고 취소표 발생 시 알림톡을 순차 발송합니다.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+              </div>
+
+              <div className="pt-4 border-t border-stone-200">
+                <button
+                  onClick={() => {
+                    showToast('⚡ 티켓팅 워룸 오픈 정책이 최신 상태로 저장되었습니다.');
+                  }}
+                  className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer"
+                >
+                  정책 적용 및 워룸 대기
+                </button>
+              </div>
+
+            </div>
+          )}
+
+                        {/* ========================================================= */}
+          {/* STEP 5: 최종 검토 & 라이브 발행 (REVIEW & PUBLISH) */}
+          {/* ========================================================= */}
+          {wizardStep === 5 && (
+            <div className="space-y-6">
+              <div className="bg-white border-2 border-stone-900 rounded-3xl p-6 sm:p-8 shadow-[5px_5px_0px_#1c1917] space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-stone-100 pb-4">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full mb-1.5 border border-emerald-300">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>5단계: 모든 등록 준비가 완료되었습니다</span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      행사 등록 최종 검토 및 라이브 발행
+                    </h3>
+                    <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                      입력하신 행사 정보, 행사장 위치, 공간 배치도, 티켓팅 정책을 최종 점검하고 서비스에 정식 오픈합니다.
+                    </p>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-300 self-start sm:self-auto">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    발행 대기 중 (Draft Ready)
+                  </span>
+                </div>
+
+                {/* Review Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: 기본 정보 */}
+                  <div className="p-4 rounded-2xl border-2 border-stone-900 bg-amber-50 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-black text-amber-900 border-b border-amber-200 pb-2">
+                      <span>1. 행사 기본 정보</span>
+                      <button type="button" onClick={() => setWizardStep(1)} className="text-amber-800 hover:underline flex items-center gap-0.5 text-[11px] font-bold cursor-pointer">
+                        수정 <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold text-stone-500">타이틀</div>
+                      <div className="text-sm font-black text-stone-900 line-clamp-1">{eventTitle}</div>
+                      <div className="text-xs text-stone-600 line-clamp-1">{eventSubtitle}</div>
+                    </div>
+                    <div className="text-[11px] space-y-1 font-mono pt-1 text-stone-700 border-t border-amber-200/60">
+                      <div>카테고리: <strong className="text-stone-900">{eventCategory.toUpperCase()}</strong></div>
+                      <div>기간: {eventPeriodStart} ~ {eventPeriodEnd}</div>
+                      <div>러닝타임: {eventRunningTime}</div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: 장소 및 지도 */}
+                  <div className="p-4 rounded-2xl border-2 border-stone-900 bg-emerald-50 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-black text-emerald-900 border-b border-emerald-200 pb-2">
+                      <span>2. 행사장 및 위치</span>
+                      <button type="button" onClick={() => setWizardStep(2)} className="text-emerald-800 hover:underline flex items-center gap-0.5 text-[11px] font-bold cursor-pointer">
+                        수정 <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold text-stone-500">장소명</div>
+                      <div className="text-sm font-black text-stone-900 line-clamp-1">{venueName}</div>
+                      <div className="text-xs text-stone-600 line-clamp-2">{venueAddress}</div>
+                    </div>
+                    <div className="text-[11px] space-y-1 font-mono pt-1 text-stone-700 border-t border-emerald-200/60">
+                      <div>KOPIS 코드: <strong className="text-emerald-800">{selectedKopisData?.kopisId || '매퍼연동'}</strong></div>
+                      <div>좌표: ({venueLat.toFixed(3)}, {venueLng.toFixed(3)})</div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: 공간 & 배치 */}
+                  <div className="p-4 rounded-2xl border-2 border-stone-900 bg-purple-50 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-black text-purple-900 border-b border-purple-200 pb-2">
+                      <span>3. 공간 &amp; 배치 설계</span>
+                      <button type="button" onClick={() => setWizardStep(3)} className="text-purple-800 hover:underline flex items-center gap-0.5 text-[11px] font-bold cursor-pointer">
+                        수정 <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold text-stone-500">배치 유형</div>
+                      <div className="text-sm font-black text-purple-950">
+                        {eventCategory === 'popup' ? '🛍️ 팝업스토어 부스·동선' : eventCategory === 'collab_cafe' ? '☕ 콜라보 카페 테이블' : eventCategory === 'exhibition' ? '🖼️ 전시회 섹션·도슨트' : eventCategory === 'festival' ? '🏕️ 야외 페스티벌 스탠딩' : '🎪 공연·뮤지컬 지정좌석'}
+                      </div>
+                      <div className="text-xs text-purple-800 font-mono mt-1">
+                        {selectedKopisData?.seatScaleDesc || '공간 설계 완료'}
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-stone-500 pt-1 border-t border-purple-200/60">
+                      {eventCategory === 'popup' ? '포토존·MD매대·가챠·30분 정원' : '등급별 좌석 및 시뮬레이션 완료'}
+                    </div>
+                  </div>
+
+                  {/* Card 4: 티켓팅 정책 */}
+                  <div className="p-4 rounded-2xl border-2 border-stone-900 bg-sky-50 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-black text-sky-900 border-b border-sky-200 pb-2">
+                      <span>4. 티켓팅 오픈 &amp; 정책</span>
+                      <button type="button" onClick={() => setWizardStep(4)} className="text-sky-800 hover:underline flex items-center gap-0.5 text-[11px] font-bold cursor-pointer">
+                        수정 <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold text-stone-500">티켓팅 오픈</div>
+                      <div className="text-sm font-black text-stone-900 font-mono">
+                        {new Date(ticketOpenDateTime).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <div className="text-[11px] space-y-1 font-mono pt-1 text-stone-700 border-t border-sky-200/60">
+                      <div>1인당 구매: <strong>최대 {maxTicketsPerUser}매</strong></div>
+                      <div>대기열 허용: <strong>{queueTrafficCap} TPS</strong></div>
+                      <div>카운트다운 방어: <strong>{enable10sCountdown ? '활성' : '비활성'}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Big Action Callout */}
+                <div className="bg-stone-900 text-white rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5 border-2 border-stone-900 shadow-[4px_4px_0px_#f59e0b]">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-amber-400 font-black text-sm">
+                      <Sparkles className="w-5 h-5 text-amber-400 animate-spin" />
+                      <span>최종 점검이 완료되었습니다!</span>
+                    </div>
+                    <h4 className="text-lg sm:text-xl font-black text-white">
+                      [{eventTitle}] 행사를 서비스에 즉시 라이브 발행하시겠습니까?
+                    </h4>
+                    <p className="text-xs sm:text-sm text-stone-300">
+                      발행 즉시 메인 페이지 피드 및 실시간 예매 시스템에 등록되며, 설정된 티켓팅 오픈 카운트다운이 시작됩니다.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSaveAllConfig();
+                      showToast('🎉 축하합니다! 행사가 공식 등록 및 실시간 라이브 발행되었습니다.');
+                    }}
+                    className="px-6 py-4 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-sm sm:text-base rounded-2xl border-2 border-stone-900 shadow-[3px_3px_0px_#fff] cursor-pointer transition-transform active:translate-x-[2px] active:translate-y-[2px] shrink-0 flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    <span>행사 최종 등록 &amp; 실시간 발행하기</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+              
+              {/* Wizard Step Footer Actions (이전/다음 단계 버튼) */}
+              <div className="flex items-center justify-between pt-6 border-t-2 border-stone-200 mt-8">
+                <button
+                  type="button"
+                  disabled={wizardStep === 1}
+                  onClick={() => {
+                    setWizardStep((prev: WizardStep) => Math.max(1, prev - 1) as WizardStep);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm border-2 border-stone-900 transition-all ${
+                    wizardStep === 1
+                      ? 'opacity-40 cursor-not-allowed bg-stone-100 text-stone-400'
+                      : 'bg-white hover:bg-stone-100 text-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer'
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>이전 단계</span>
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-stone-400 font-mono hidden sm:inline">
+                    STEP {wizardStep} / 5 단계
+                  </span>
+                  {wizardStep < 5 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWizardStep((prev: WizardStep) => Math.min(5, prev + 1) as WizardStep);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+                    >
+                      <span>
+                        {wizardStep === 1 && '다음 단계: 장소 및 지도 설정'}
+                        {wizardStep === 2 && '다음 단계: 공간 및 좌석/부스 배치'}
+                        {wizardStep === 3 && '다음 단계: 티켓팅 정책 설정'}
+                        {wizardStep === 4 && '다음 단계: 최종 검토 & 발행'}
+                      </span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSaveAllConfig();
+                        showToast('🎉 축하합니다! 행사가 성공적으로 등록 및 라이브 발행되었습니다.');
+                      }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      <span>행사 최종 등록 및 라이브 발행하기</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* SECTION 2: MEMBER MANAGEMENT (회원 관리) */}
+          {/* ========================================================= */}
           {/* ========================================================= */}
           {/* TAB 1: 회원 관리 & 이용 정지 (USER MANAGEMENT) */}
           {/* ========================================================= */}
-          {activeTab === 'users' && (
+          {mainSection === 'users' && (
             <div className="space-y-6">
               
               {/* Summary Stats Cards */}
@@ -1088,648 +2003,12 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 2: 행사 정보 & 포스터 관리 (EVENT CONTENT & POSTER) */}
+          {/* SECTION 3: AUDIT LOGS (감사 로그) */}
           {/* ========================================================= */}
-          {activeTab === 'event' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              <div className="lg:col-span-2 space-y-5 bg-white p-6 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917]">
-                <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-3 border-b-2 border-stone-200">
-                  <FileText className="w-5 h-5 text-amber-500" />
-                  <span>행사 기본 정보 및 타이틀 설정</span>
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-stone-700">행사 공식 타이틀 *</label>
-                    <input
-                      type="text"
-                      value={eventTitle}
-                      onChange={(e) => setEventTitle(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-400 focus:outline-hidden"
-                      placeholder="예: 뮤지컬 데스노트 2027 월드투어 서울"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-stone-700">인용 서브 슬로건 / 부제</label>
-                    <input
-                      type="text"
-                      value={eventSubtitle}
-                      onChange={(e) => setEventSubtitle(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-400 focus:outline-hidden"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">행사 카테고리 태그</label>
-                    <select
-                      value={eventCategory}
-                      onChange={(e) => setEventCategory(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold bg-white focus:outline-hidden"
-                    >
-                      <option value="performance">🎭 공연 (뮤지컬 / 콘서트 / 연극)</option>
-                      <option value="popup">🛍️ 팝업스토어 (브랜드 / 캐릭터)</option>
-                      <option value="collab_cafe">☕ 콜라보 카페 / F&amp;B</option>
-                      <option value="exhibition">🖼️ 전시회 (미디어아트 / 갤러리)</option>
-                      <option value="festival">🏕️ 야외 페스티벌 (뮤직 / 푸드)</option>
-                      <option value="movie">🎬 영화 / GV / 시사회</option>
-                    </select>
-                  </div>
-
-                  {/* Category to Space Studio Quick Link */}
-                  <div className="sm:col-span-2 bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">
-                        {eventCategory === 'popup' ? '🛍️' : eventCategory === 'collab_cafe' ? '☕' : eventCategory === 'exhibition' ? '🖼️' : eventCategory === 'festival' ? '🏕️' : '🎭'}
-                      </span>
-                      <div>
-                        <div className="text-xs font-black text-purple-950">
-                          맞춤 공간 엔진 연동: [{eventCategory === 'popup' ? '🛍️ 팝업스토어 (부스/타임정원)' : eventCategory === 'collab_cafe' ? '☕ 콜라보 카페 (테이블배치)' : eventCategory === 'exhibition' ? '🖼️ 전시회 (섹션/도슨트)' : eventCategory === 'festival' ? '🏕️ 야외 페스티벌 (스탠딩/피크닉)' : '🎭 공연·뮤지컬 (지정좌석)'}]
-                        </div>
-                        <div className="text-[11px] text-purple-700 mt-0.5">
-                          {eventCategory === 'popup' && 'MD판매대, 포토존, 럭키가챠, DIY존 및 30분 타임정원을 설계합니다.'}
-                          {eventCategory === 'collab_cafe' && '2인/4인 부스석, 바 카운터 및 70분 타임제 테이블 맵을 설정합니다.'}
-                          {eventCategory === 'exhibition' && '1~5전시실 룸 테마, 일방통행 관람동선 및 도슨트 투어를 설계합니다.'}
-                          {eventCategory === 'festival' && '메인 스테이지, 스탠딩 A/B 구역 및 피크닉 돗자리 존을 배치합니다.'}
-                          {eventCategory === 'performance' && '부채꼴 아치, T자 돌출무대, 발코니 및 VIP/R/S 좌석을 배치합니다.'}
-                          {eventCategory === 'movie' && '스크린 및 전석 지정석 시야각을 배치합니다.'}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('seats')}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto shrink-0 transition-transform active:scale-95"
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>맞춤 공간 설계기로 이동</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">관람 연령 등급</label>
-                    <input
-                      type="text"
-                      value={eventAgeRating}
-                      onChange={(e) => setEventAgeRating(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">관람 기간 (시작일)</label>
-                    <input
-                      type="date"
-                      value={eventPeriodStart}
-                      onChange={(e) => setEventPeriodStart(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">관람 기간 (종료일)</label>
-                    <input
-                      type="date"
-                      value={eventPeriodEnd}
-                      onChange={(e) => setEventPeriodEnd(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">러닝타임 / 인터미션</label>
-                    <input
-                      type="text"
-                      value={eventRunningTime}
-                      onChange={(e) => setEventRunningTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">대표 티켓 가격 요약</label>
-                    <input
-                      type="text"
-                      value={eventPriceSummary}
-                      onChange={(e) => setEventPriceSummary(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-stone-700">포스터 이미지 URL</label>
-                    <input
-                      type="text"
-                      value={eventPosterUrl}
-                      onChange={(e) => setEventPosterUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-mono"
-                    />
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-bold text-stone-400">추천 프리셋:</span>
-                      {posterPresets.map((p) => (
-                        <button
-                          key={p.title}
-                          type="button"
-                          onClick={() => setEventPosterUrl(p.url)}
-                          className="px-2 py-0.5 bg-stone-100 hover:bg-amber-100 rounded text-[10px] font-bold text-stone-700 border border-stone-200"
-                        >
-                          {p.title}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-stone-700">행사 상세 소개 &amp; 시놉시스</label>
-                    <textarea
-                      rows={5}
-                      value={eventDescription}
-                      onChange={(e) => setEventDescription(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-amber-400 font-sans"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-stone-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-stone-800 uppercase tracking-wider">
-                      캐스팅 라인업 (주요 출연진 &amp; 배역)
-                    </h4>
-                    <span className="text-[11px] text-stone-400 font-mono">총 {castList.length}명 등록됨</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {castList.map((c) => (
-                      <div
-                        key={c.id}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-stone-900"
-                      >
-                        <span className="text-amber-800">{c.role}</span>
-                        <span className="text-stone-400">|</span>
-                        <span>{c.actor}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCast(c.id)}
-                          className="text-stone-400 hover:text-rose-600 ml-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2">
-                    <input
-                      type="text"
-                      value={newRoleInput}
-                      onChange={(e) => setNewRoleInput(e.target.value)}
-                      placeholder="배역명 (예: 야가미 라이토)"
-                      className="w-1/3 px-3 py-1.5 border border-stone-300 rounded-xl text-xs"
-                    />
-                    <input
-                      type="text"
-                      value={newActorInput}
-                      onChange={(e) => setNewActorInput(e.target.value)}
-                      placeholder="배우명 (예: 홍광호)"
-                      className="w-1/3 px-3 py-1.5 border border-stone-300 rounded-xl text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCast}
-                      className="px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>캐스트 추가</span>
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-white p-5 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] space-y-4 sticky top-6">
-                  <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                    <span className="text-xs font-black text-stone-900 uppercase">
-                      실시간 행사 상세 프리뷰
-                    </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                      LIVE PREVIEW
-                    </span>
-                  </div>
-
-                  <div className="aspect-3/4 rounded-2xl overflow-hidden border-2 border-stone-900 shadow-md relative bg-stone-100">
-                    <img
-                      src={eventPosterUrl}
-                      alt={eventTitle}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as any).src =
-                          'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80';
-                      }}
-                    />
-                    <div className="absolute top-3 left-3 bg-rose-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase shadow-xs">
-                      {eventCategory.toUpperCase()}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <h4 className="font-black text-stone-900 text-base leading-tight">
-                      {eventTitle}
-                    </h4>
-                    <p className="text-xs text-stone-500 line-clamp-1">{eventSubtitle}</p>
-                    <div className="pt-2 text-xs space-y-1 text-stone-600 font-medium">
-                      <div>
-                        📅 <span className="font-bold text-stone-800">일정:</span> {eventPeriodStart} ~ {eventPeriodEnd}
-                      </div>
-                      <div>
-                        ⏱️ <span className="font-bold text-stone-800">러닝타임:</span> {eventRunningTime}
-                      </div>
-                      <div>
-                        🎫 <span className="font-bold text-stone-800">가격:</span> {eventPriceSummary}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      showToast('💾 행사 기본 정보와 포스터 설정이 임시 저장되었습니다.');
-                    }}
-                    className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer"
-                  >
-                    이 내용으로 행사 저장하기
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* ========================================================= */}
-          {/* TAB 3: 오시는 길 & 대화형 지도 위치 피커 (MAP LOCATION PICKER) */}
-          {/* ========================================================= */}
-          {activeTab === 'map' && (
-            <div className="space-y-6">
-              
-              {/* KOPIS API & Venue Presets Bar */}
-              <div className="bg-white p-5 border-2 border-stone-900 rounded-3xl shadow-[4px_4px_0px_#1c1917] space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🏛️</span>
-                    <div>
-                      <h4 className="font-black text-sm text-stone-900">
-                        KOPIS 공공데이터 &amp; 스마트 베뉴 공간 데이터베이스 (좌석·도면 자동 연동)
-                      </h4>
-                      <p className="text-[11px] text-stone-500">
-                        장소를 선택하면 공공 API 시설코드 및 실제 극장 좌석도 / 팝업스토어 부스 도면이 자동 동기화됩니다.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsKopisModalOpen(true)}
-                    className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl border border-stone-900 shadow-xs cursor-pointer transition-all"
-                  >
-                    <Radio className="w-3.5 h-3.5 text-stone-950" />
-                    <span>KOPIS API 연동 원리 확인</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                  {venuePresets.map((preset) => {
-                    const isSelected = venueName === preset.name;
-                    return (
-                      <button
-                        key={preset.name}
-                        onClick={() => handleSelectVenuePreset(preset)}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between relative ${
-                          isSelected
-                            ? 'bg-emerald-50 border-emerald-600 shadow-[3px_3px_0px_#059669] ring-2 ring-emerald-400'
-                            : 'bg-stone-50 border-stone-300 hover:border-stone-900 hover:bg-white text-stone-800'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-base">
-                              {preset.category === 'popup' ? '🛍️' : preset.category === 'collab_cafe' ? '☕' : preset.category === 'exhibition' ? '🖼️' : preset.category === 'festival' ? '🏕️' : '🎭'}
-                            </span>
-                            <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full ${
-                              isSelected ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700'
-                            }`}>
-                              {preset.kopisId?.startsWith('FC') ? `KOPIS:${preset.kopisId}` : '매퍼연동'}
-                            </span>
-                          </div>
-                          <div className="font-black text-xs line-clamp-1">{preset.name}</div>
-                          <div className="text-[10px] text-stone-500 font-mono mt-0.5">{preset.seatScaleDesc}</div>
-                        </div>
-
-                        <div className="mt-2 pt-1.5 border-t border-stone-200 flex items-center justify-between text-[10px] font-bold">
-                          <span className="text-emerald-700 font-mono line-clamp-1">{preset.layoutPresetName}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-300 text-[11px] text-emerald-950 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>
-                      현재 선택: <strong>[{venueName}]</strong> — {selectedKopisData?.apiSyncStatus || '동기화 완료'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('seats')}
-                    className="font-bold text-emerald-800 hover:underline shrink-0 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>이 베뉴의 공간 배치도 보기</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Grid: Coordinates & Fields + Live Map Preview */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Form (5 cols) */}
-                <div className="lg:col-span-5 bg-white p-6 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] space-y-4">
-                  <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-2 border-b border-stone-200">
-                    <MapPin className="w-5 h-5 text-emerald-600" />
-                    <span>행사장 위치 및 지도 피커 정보</span>
-                  </h3>
-
-                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 font-bold flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <strong>💡 직접 위치 고르기 안내:</strong><br />
-                      오른쪽 지도 위를 <strong>클릭</strong>하거나 <strong>노란 핀을 원하는 곳으로 드래그</strong>하면 실시간으로 좌표와 주소가 이 화면에 자동 반영됩니다!
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">행사장 / 공연장 명칭 *</label>
-                    <input
-                      type="text"
-                      value={venueName}
-                      onChange={(e) => setVenueName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-400 focus:outline-hidden"
-                      placeholder="예: 디큐브 링크아트센터 대극장"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">도로명 주소 *</label>
-                    <input
-                      type="text"
-                      value={venueAddress}
-                      onChange={(e) => setVenueAddress(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-400 focus:outline-hidden"
-                      placeholder="예: 서울특별시 구로구 경인로 662 디큐브시티 7층"
-                    />
-                  </div>
-
-                  {/* Coordinates */}
-                  <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
-                    <div className="text-[11px] font-bold text-stone-500 flex items-center justify-between">
-                      <span>실시간 GPS 좌표 (Latitude / Longitude)</span>
-                      <button
-                        onClick={() => setMapRefreshKey(Date.now())}
-                        className="text-emerald-700 hover:underline flex items-center gap-1 text-[10px] font-bold cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>지도 새로고침</span>
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold text-stone-600">위도 (Lat)</label>
-                        <input
-                          type="number"
-                          step="0.0001"
-                          value={venueLat}
-                          onChange={(e) => setVenueLat(parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs font-mono font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-stone-600">경도 (Lng)</label>
-                        <input
-                          type="number"
-                          step="0.0001"
-                          value={venueLng}
-                          onChange={(e) => setVenueLng(parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs font-mono font-bold"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">대중교통 지하철 도보 안내</label>
-                    <textarea
-                      rows={2}
-                      value={venueTransit}
-                      onChange={(e) => setVenueTransit(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-stone-300 rounded-xl text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700">주차 요금 및 관람객 할인 팁</label>
-                    <textarea
-                      rows={2}
-                      value={venueParking}
-                      onChange={(e) => setVenueParking(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-stone-300 rounded-xl text-xs"
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setMapRefreshKey(Date.now());
-                      showToast(`📍 [${venueName}] 지도 설정이 저장되었습니다.`);
-                    }}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-sm cursor-pointer"
-                  >
-                    지도 위치 확정 및 저장
-                  </button>
-
-                </div>
-
-                {/* Live Interactive Map Preview with Click-To-Pick (7 cols) */}
-                <div className="lg:col-span-7 bg-white p-5 border-2 border-stone-900 rounded-2xl shadow-[4px_4px_0px_#1c1917] flex flex-col space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-black text-stone-900">
-                        대화형 위치 피커 지도 (지도를 클릭하거나 핀을 드래그하세요)
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded">
-                      {venueLat.toFixed(4)}, {venueLng.toFixed(4)}
-                    </span>
-                  </div>
-
-                  {/* Interactive Leaflet Map iframe */}
-                  <div className="w-full flex-1 min-h-[480px] rounded-xl overflow-hidden border-2 border-stone-900 shadow-inner relative">
-                    <iframe
-                      key={mapRefreshKey}
-                      src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/venue-map.html?lat=${venueLat}&lng=${venueLng}&name=${encodeURIComponent(
-                        venueName
-                      )}&address=${encodeURIComponent(venueAddress)}`}
-                      className="w-full h-full min-h-[480px] border-0"
-                      title="실시간 공연장 오시는 길 지도 & 위치 피커"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-stone-500">
-                    🎯 지도 상단 검색창에 건물명을 검색하거나, 지도 위 원하는 지점을 클릭하면 실시간으로 핀이 옮겨지며 좌측 입력폼에 위경도가 즉시 연동됩니다.
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 4: 유니버설 공간 & 배치 스튜디오 (UNIVERSAL SPACE & SEAT STUDIO) */}
-          {/* ========================================================================= */}
-          {activeTab === 'seats' && (
-            <UniversalSpaceStudio
-              venueName={venueName}
-              eventCategory={eventCategory}
-              onShowToast={showToast}
-            />
-          )}
-
-          {/* ========================================================= */}
-          {/* TAB 5: 티켓팅 오픈 & 정책 (POLICIES & WAR ROOM) */}
-          {/* ========================================================= */}
-          {activeTab === 'policies' && (
-            <div className="max-w-4xl mx-auto bg-white border-2 border-stone-900 rounded-2xl p-6 sm:p-8 shadow-[4px_4px_0px_#1c1917] space-y-6">
-              <h3 className="text-base font-black text-stone-900 flex items-center gap-2 pb-3 border-b border-stone-200">
-                <Clock className="w-5 h-5 text-sky-500" />
-                <span>티켓팅 오픈 시간 및 대기열 워룸 정책</span>
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700">티켓팅 공식 오픈 일시 *</label>
-                  <input
-                    type="datetime-local"
-                    value={ticketOpenDateTime}
-                    onChange={(e) => setTicketOpenDateTime(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-mono font-bold"
-                  />
-                  <p className="text-[11px] text-stone-400">
-                    지정된 시각 정각에 대기열 팝업과 좌석 선택창이 자동 오픈됩니다.
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700">1인당 최대 예매 한도</label>
-                  <select
-                    value={maxTicketsPerUser}
-                    onChange={(e) => setMaxTicketsPerUser(parseInt(e.target.value))}
-                    className="w-full px-3.5 py-2.5 border-2 border-stone-900 rounded-xl text-xs font-bold bg-white"
-                  >
-                    <option value={2}>1인 2매 제한 (엄격한 암표 방지)</option>
-                    <option value={4}>1인 4매 제한 (표준 패밀리/친구 권장)</option>
-                    <option value={6}>1인 6매 제한</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700">동시 대기열 허용 트래픽 수용치 (TPS)</label>
-                  <input
-                    type="text"
-                    value={queueTrafficCap}
-                    onChange={(e) => setQueueTrafficCap(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-xs font-mono font-bold"
-                  />
-                  <p className="text-[11px] text-stone-400">
-                    초과 접속 시 팝콘 가상 대기열 화면(대기 번호표)으로 자동 격리됩니다.
-                  </p>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enable10sCountdown}
-                      onChange={(e) => setEnable10sCountdown(e.target.checked)}
-                      className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
-                    />
-                    <div>
-                      <div className="text-xs font-black text-stone-900">
-                        10초 전 '팝콘 팡팡' 오버레이 카운트다운 강제 활성화
-                      </div>
-                      <div className="text-[10px] text-stone-500">
-                        오픈 10초 전 전체 화면에 노란 팝콘이 팡팡 튀며 심장박동 사운드가 재생됩니다.
-                      </div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableGroupSplit}
-                      onChange={(e) => setEnableGroupSplit(e.target.checked)}
-                      className="w-4 h-4 rounded accent-purple-500 cursor-pointer"
-                    />
-                    <div>
-                      <div className="text-xs font-black text-stone-900">
-                        동행 1/N 연석 분할 결제 방 허용
-                      </div>
-                      <div className="text-[10px] text-stone-500">
-                        주최사가 승인한 회차에 한해 친구 초대 후 5분간 좌석을 홀드하고 각자 결제할 수 있습니다.
-                      </div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableWaitlist}
-                      onChange={(e) => setEnableWaitlist(e.target.checked)}
-                      className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
-                    />
-                    <div>
-                      <div className="text-xs font-black text-stone-900">
-                        매진 회차 취소표 대기열(Waitlist) 자동 오픈
-                      </div>
-                      <div className="text-[10px] text-stone-500">
-                        전석 매진 즉시 대기열 등록을 열고 취소표 발생 시 알림톡을 순차 발송합니다.
-                      </div>
-                    </div>
-                  </label>
-                </div>
-
-              </div>
-
-              <div className="pt-4 border-t border-stone-200">
-                <button
-                  onClick={() => {
-                    showToast('⚡ 티켓팅 워룸 오픈 정책이 최신 상태로 저장되었습니다.');
-                  }}
-                  className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer"
-                >
-                  정책 적용 및 워룸 대기
-                </button>
-              </div>
-
-            </div>
-          )}
-
           {/* ========================================================= */}
           {/* TAB 6: 관리자 감사 로그 & 보안 활동 (AUDIT LOGS) */}
           {/* ========================================================= */}
-          {activeTab === 'audit' && (
+          {mainSection === 'audit' && (
             <div className="max-w-4xl mx-auto bg-white border-2 border-stone-900 rounded-2xl p-6 sm:p-8 shadow-[4px_4px_0px_#1c1917] space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                 <div className="flex items-center gap-2">
@@ -1816,8 +2095,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
 
               </div>
 
-            </div>
-          )}
+            </div>  )}
 
         </div>
 
@@ -2260,7 +2538,8 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
               <button
                 onClick={() => {
                   setIsKopisModalOpen(false);
-                  setActiveTab('seats');
+                  setMainSection('wizard');
+                  setWizardStep(3);
                 }}
                 className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer"
               >
