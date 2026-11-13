@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { CustomGridSandboxStudio } from './CustomGridSandboxStudio';
 import {
   Layers,
   Store,
@@ -40,7 +41,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-export type SpaceMode = 'theatre' | 'popup' | 'cafe' | 'exhibition' | 'festival';
+export type SpaceMode = 'theatre' | 'popup' | 'cafe' | 'exhibition' | 'festival' | 'sandbox';
 export type CustomSeatGrade = 'op' | 'vip' | 'r' | 's' | 'a' | 'wheelchair' | 'empty';
 export type StageStyle = 'proscenium' | 'thrust_t' | 'circular_arena' | 'runway';
 
@@ -125,7 +126,7 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const m = p.get('spaceMode') as SpaceMode;
-      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival'].includes(m)) {
+      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival', 'sandbox'].includes(m)) {
         return m;
       }
     }
@@ -141,7 +142,7 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const m = p.get('spaceMode') as SpaceMode;
-      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival'].includes(m)) {
+      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival', 'sandbox'].includes(m)) {
         setCurrentMode(m);
       }
     }
@@ -872,7 +873,7 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
         </div>
 
         {/* 5-Mode Switcher Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
           {/* Card 1: 팝업스토어 */}
           <button
             onClick={() => {
@@ -1003,7 +1004,7 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
               setCurrentMode('festival');
               onShowToast('🏕️ [야외 페스티벌 & 스탠딩 구역 블록]으로 전환되었습니다.');
             }}
-            className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden col-span-2 sm:col-span-1 ${
+            className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden ${
               currentMode === 'festival'
                 ? 'bg-emerald-50 border-emerald-600 shadow-[3px_3px_0px_#059669] ring-2 ring-emerald-400'
                 : 'bg-stone-50 border-stone-300 hover:border-stone-900 hover:bg-white text-stone-700'
@@ -1024,6 +1025,37 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
             {currentMode === 'festival' && (
               <div className="mt-2 text-[10px] font-bold text-emerald-600 flex items-center gap-1">
                 <Check className="w-3 h-3" /> 활성 모드
+              </div>
+            )}
+          </button>
+
+          {/* Card 6: 완전 자유 샌드박스 빌더 */}
+          <button
+            onClick={() => {
+              setCurrentMode('sandbox');
+              onShowToast('🛠️ [완전 자유 샌드박스: 블록 & 길 만들기 스튜디오]로 전환되었습니다.');
+            }}
+            className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden ${
+              currentMode === 'sandbox'
+                ? 'bg-amber-100 border-stone-900 shadow-[3px_3px_0px_#1c1917] ring-3 ring-amber-400'
+                : 'bg-stone-50 border-stone-300 hover:border-stone-900 hover:bg-white text-stone-700'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl">🛠️</span>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                currentMode === 'sandbox' ? 'bg-stone-950 text-amber-300 font-bold' : 'bg-stone-200 text-stone-600'
+              }`}>
+                100% 커스텀
+              </span>
+            </div>
+            <div className="font-black text-sm text-stone-900">블록 &amp; 길 샌드박스</div>
+            <div className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">
+              좌석 · 부스 · 통로길 100% 직접 그리기
+            </div>
+            {currentMode === 'sandbox' && (
+              <div className="mt-2 text-[10px] font-bold text-stone-950 flex items-center gap-1">
+                <Check className="w-3 h-3 text-emerald-600" /> 활성 모드
               </div>
             )}
           </button>
@@ -2607,6 +2639,16 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ------------------------------------------------------------------------- */}
+      {/* [MODE 6] 🛠️ FREEFORM CUSTOM GRID SANDBOX STUDIO (블록 & 길 샌드박스) */}
+      {/* ------------------------------------------------------------------------- */}
+      {currentMode === 'sandbox' && (
+        <CustomGridSandboxStudio
+          venueName={venueName}
+          onShowToast={onShowToast}
+        />
       )}
     </div>
   );
