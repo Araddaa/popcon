@@ -47,9 +47,14 @@ import {
   Eraser,
   Wand2,
   Maximize2,
+  Store,
+  Coffee,
+  Radio,
+  Code2,
 } from 'lucide-react';
 import { AdminMember, UserStatus, UserRole } from '../types';
-import { initialAdminMembers, venuePresets, posterPresets } from '../data/adminMockData';
+import { initialAdminMembers, venuePresets, posterPresets, AdminVenuePreset } from '../data/adminMockData';
+import { UniversalSpaceStudio } from './UniversalSpaceStudio';
 
 interface AdminConsoleProps {
   onClose?: () => void;
@@ -360,7 +365,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   // ==========================================
   const [eventTitle, setEventTitle] = useState('뮤지컬 <데스노트 2027> 서울 월드투어');
   const [eventSubtitle, setEventSubtitle] = useState('홍광호 · 김준수 · 고은성 주연 전석 지정석 티켓팅');
-  const [eventCategory, setEventCategory] = useState<'performance' | 'popup' | 'exhibition' | 'movie' | 'collab_cafe'>('performance');
+  const [eventCategory, setEventCategory] = useState<'performance' | 'popup' | 'exhibition' | 'movie' | 'collab_cafe' | 'festival'>('performance');
   const [eventPeriodStart, setEventPeriodStart] = useState('2027-01-10');
   const [eventPeriodEnd, setEventPeriodEnd] = useState('2027-04-15');
   const [eventRunningTime, setEventRunningTime] = useState('160분 (인터미션 20분 포함)');
@@ -397,13 +402,15 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   // ==========================================
   // 3. LOCATION & INTERACTIVE MAP STATE (위치 및 대화형 지도)
   // ==========================================
-  const [venueName, setVenueName] = useState('디큐브 링크아트센터 대극장');
-  const [venueAddress, setVenueAddress] = useState('서울특별시 구로구 경인로 662 디큐브시티 7층');
-  const [venueLat, setVenueLat] = useState<number>(37.5089);
-  const [venueLng, setVenueLng] = useState<number>(126.8891);
-  const [venueTransit, setVenueTransit] = useState('지하철 1·2호선 신도림역 1번/5번 출구 지하 직결 (도보 2분)');
-  const [venueParking, setVenueParking] = useState('디큐브시티 지하 주차장 이용 시 당일 관람객 4시간 5,000원 할인권 제공');
+  const [venueName, setVenueName] = useState('잠실 샤롯데씨어터');
+  const [venueAddress, setVenueAddress] = useState('서울특별시 송파구 올림픽로 240');
+  const [venueLat, setVenueLat] = useState<number>(37.5111);
+  const [venueLng, setVenueLng] = useState<number>(127.0982);
+  const [venueTransit, setVenueTransit] = useState('지하철 2·8호선 잠실역 3번 출구 도보 5분 (롯데월드 호텔 방면)');
+  const [venueParking, setVenueParking] = useState('샤롯데씨어터 지하 주차장 4시간 4,000원 (로비 무인 정산기 등록 필수)');
   const [mapRefreshKey, setMapRefreshKey] = useState<number>(Date.now());
+  const [isKopisModalOpen, setIsKopisModalOpen] = useState(false);
+  const [selectedKopisData, setSelectedKopisData] = useState<AdminVenuePreset>(venuePresets[0]);
 
   // 지도 iframe과의 양방향 실시간 메시지 연동 (지도 클릭 시 좌표 자동 갱신!)
   useEffect(() => {
@@ -425,7 +432,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     return () => window.removeEventListener('message', handleMapMessage);
   }, []);
 
-  const handleSelectVenuePreset = (preset: (typeof venuePresets)[0]) => {
+  const handleSelectVenuePreset = (preset: AdminVenuePreset) => {
     setVenueName(preset.name);
     setVenueAddress(preset.address);
     setVenueLat(preset.lat);
@@ -433,317 +440,17 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     setVenueTransit(preset.transit);
     setVenueParking(preset.parking);
     setMapRefreshKey(Date.now());
-    showToast(`📍 [${preset.name}] 위치 정보와 좌표가 자동 반영되었습니다.`);
-  };
-
-  // =========================================================================
-  // 4. FREEFORM & MULTI-ARCHITECTURE SEAT MAP BUILDER (자유 비정형 좌석 배치 스튜디오)
-  // =========================================================================
-  const seatRows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-  const seatCols = Array.from({ length: 18 }, (_, i) => i + 1);
-
-  const [stageStyle, setStageStyle] = useState<StageStyle>('proscenium');
-  const [fanCurvature, setFanCurvature] = useState<number>(45); // 곡률 0% ~ 100%
-  const [wingAngle, setWingAngle] = useState<number>(15); // 좌/우 날개석 안쪽 경사각 (0° ~ 25°)
-  const [isStaggered, setIsStaggered] = useState<boolean>(true); // 지그재그 시야각 오프셋
-  const [activeFloor, setActiveFloor] = useState<'1F' | '2F'>('1F');
-
-  // 도구 팔레트
-  const [selectedSeatTool, setSelectedSeatTool] = useState<CustomSeatGrade>('vip');
-  const [seatPrices, setSeatPrices] = useState({
-    op: 190000,
-    vip: 170000,
-    r: 140000,
-    s: 110000,
-    a: 80000,
-    wheelchair: 85000,
-  });
-
-  // --- 프리셋 1: 샤롯데 / 대극장 3구역 부채꼴 (Curved Fan Theater) ---
-  const generateCurvedFanPreset = (): Record<string, CustomSeatGrade> => {
-    const layout: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r, rIdx) => {
-      seatCols.forEach((c) => {
-        const id = `${r}${c}`;
-        // Aisles at col 6 and col 13
-        if (c === 6 || c === 13) {
-          layout[id] = 'empty';
-          return;
-        }
-
-        // Row A & B: OP석 (오케스트라 피트석)
-        if (rIdx === 0) {
-          if (c >= 8 && c <= 11) layout[id] = 'op';
-          else layout[id] = 'empty';
-          return;
-        }
-        if (rIdx === 1) {
-          if (c >= 7 && c <= 12) layout[id] = 'op';
-          else layout[id] = 'empty';
-          return;
-        }
-
-        // Curved arch outer corners: 앞열은 좁고 뒷열로 갈수록 사다리꼴 부채꼴로 확장!
-        if (rIdx === 2 && (c <= 2 || c >= 17)) { layout[id] = 'empty'; return; }
-        if (rIdx === 3 && (c <= 1 || c >= 18)) { layout[id] = 'empty'; return; }
-
-        if (rIdx >= 2 && rIdx <= 4) {
-          layout[id] = 'vip';
-        } else if (rIdx >= 5 && rIdx <= 8) {
-          layout[id] = 'r';
-        } else if (rIdx >= 9 && rIdx <= 10) {
-          layout[id] = 's';
-        } else {
-          layout[id] = 'a';
-        }
-      });
-    });
-    // Wheelchair seats at rear corners
-    layout['L1'] = 'wheelchair';
-    layout['L2'] = 'wheelchair';
-    layout['L17'] = 'wheelchair';
-    layout['L18'] = 'wheelchair';
-    return layout;
-  };
-
-  // --- 프리셋 2: KSPO DOME / 아레나 T자 돌출무대 (Thrust T-Stage Arena) ---
-  const generateTStagePreset = (): Record<string, CustomSeatGrade> => {
-    const layout: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r, rIdx) => {
-      seatCols.forEach((c) => {
-        const id = `${r}${c}`;
-        // Central T-Stage cutout: Rows A through F, cols 8 through 11
-        if (rIdx <= 5 && c >= 8 && c <= 11) {
-          layout[id] = 'empty'; // T-Stage runway area!
-          return;
-        }
-        // Standing VIP Pen A (Left) & Pen B (Right)
-        if (rIdx >= 1 && rIdx <= 5) {
-          if (c >= 2 && c <= 6) { layout[id] = 'op'; return; } // Pen A VIP
-          if (c >= 13 && c <= 17) { layout[id] = 'op'; return; } // Pen B VIP
-          layout[id] = 'empty';
-          return;
-        }
-        // Seating wrapping around the tip of the T-Stage
-        if (rIdx === 6) {
-          if (c >= 6 && c <= 13) layout[id] = 'vip';
-          else layout[id] = 'empty';
-          return;
-        }
-        if (rIdx >= 7 && rIdx <= 9) {
-          if (c === 6 || c === 13) layout[id] = 'empty';
-          else layout[id] = 'r';
-          return;
-        }
-        if (rIdx >= 10) {
-          if (c === 6 || c === 13) layout[id] = 'empty';
-          else layout[id] = 's';
-          return;
-        }
-        layout[id] = 'empty';
-      });
-    });
-    return layout;
-  };
-
-  // --- 프리셋 3: 예술의전당 오페라극장 다층 발코니 (Tiered Balcony) ---
-  const generateBalconyPreset = (): Record<string, CustomSeatGrade> => {
-    const layout: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r, rIdx) => {
-      seatCols.forEach((c) => {
-        const id = `${r}${c}`;
-        // Left & Right Elevated Box Seats (Cols 1-2 and Cols 17-18)
-        if ((c <= 2 || c >= 17) && rIdx <= 4) {
-          layout[id] = 'vip';
-          return;
-        }
-        // Center Balcony Arch
-        if (rIdx >= 4 && rIdx <= 11) {
-          if (c >= 4 && c <= 15) {
-            if (c === 6 || c === 13) layout[id] = 'empty';
-            else if (rIdx <= 6) layout[id] = 'r';
-            else if (rIdx <= 9) layout[id] = 's';
-            else layout[id] = 'a';
-            return;
-          }
-        }
-        layout[id] = 'empty';
-      });
-    });
-    return layout;
-  };
-
-  // --- 프리셋 4: 성수 에스팩토리 비정형 아일랜드 & 런웨이 (Freeform Islands) ---
-  const generateSeongsuIslandPreset = (): Record<string, CustomSeatGrade> => {
-    const layout: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r) => {
-      seatCols.forEach((c) => {
-        layout[`${r}${c}`] = 'empty';
-      });
-    });
-    // Island A (VIP Lounge Pod - 10 seats)
-    ['B3', 'B4', 'B5', 'C3', 'C4', 'C5', 'D3', 'D4', 'D5'].forEach((id) => (layout[id] = 'vip'));
-    // Island B (R석 체험존 아일랜드 - 12 seats)
-    ['B14', 'B15', 'B16', 'C14', 'C15', 'C16', 'D14', 'D15', 'D16', 'E14', 'E15', 'E16'].forEach(
-      (id) => (layout[id] = 'r')
-    );
-    // Runway flanking seats (C8-C11 & F8-F11)
-    ['F7', 'F8', 'F11', 'F12', 'G7', 'G8', 'G11', 'G12'].forEach((id) => (layout[id] = 'op'));
-    // Island C (S석 원형 라운지)
-    ['H3', 'H4', 'H5', 'I3', 'I4', 'I5', 'J3', 'J4', 'J5', 'H14', 'H15', 'H16', 'I14', 'I15', 'I16'].forEach(
-      (id) => (layout[id] = 's')
-    );
-    return layout;
-  };
-
-  // --- 프리셋 5: 대학로 지그재그 소극장 (Staggered Small Theater) ---
-  const generateStaggeredPreset = (): Record<string, CustomSeatGrade> => {
-    const layout: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r, rIdx) => {
-      seatCols.forEach((c) => {
-        const id = `${r}${c}`;
-        if (rIdx > 7) { layout[id] = 'empty'; return; }
-        if (c < 4 || c > 15) { layout[id] = 'empty'; return; }
-        if (c === 9) { layout[id] = 'empty'; return; } // center aisle
-        if (rIdx <= 2) layout[id] = 'vip';
-        else if (rIdx <= 5) layout[id] = 'r';
-        else layout[id] = 's';
-      });
-    });
-    return layout;
-  };
-
-  // Layout states for 1F and 2F
-  const [layout1F, setLayout1F] = useState<Record<string, CustomSeatGrade>>(generateCurvedFanPreset);
-  const [layout2F, setLayout2F] = useState<Record<string, CustomSeatGrade>>(generateBalconyPreset);
-
-  const currentLayout = activeFloor === '1F' ? layout1F : layout2F;
-  const setCurrentLayout = (newLayout: Record<string, CustomSeatGrade>) => {
-    if (activeFloor === '1F') setLayout1F(newLayout);
-    else setLayout2F(newLayout);
-  };
-
-  // 프리셋 로더 함수들
-  const loadPreset = (type: 'fan' | 't_stage' | 'balcony' | 'island' | 'staggered') => {
-    if (type === 'fan') {
-      setStageStyle('proscenium');
-      setFanCurvature(45);
-      setWingAngle(15);
-      setIsStaggered(true);
-      setCurrentLayout(generateCurvedFanPreset());
-      showToast('🏛️ [샤롯데씨어터형 부채꼴 대극장] 프리셋이 로드되었습니다.');
-    } else if (type === 't_stage') {
-      setStageStyle('thrust_t');
-      setFanCurvature(30);
-      setWingAngle(10);
-      setIsStaggered(false);
-      setCurrentLayout(generateTStagePreset());
-      showToast('🎤 [KSPO DOME형 T자 돌출무대 아레나] 프리셋이 로드되었습니다.');
-    } else if (type === 'balcony') {
-      setStageStyle('proscenium');
-      setFanCurvature(35);
-      setWingAngle(20);
-      setIsStaggered(true);
-      setCurrentLayout(generateBalconyPreset());
-      showToast('🎭 [예술의전당형 다층 발코니 & 박스석] 프리셋이 로드되었습니다.');
-    } else if (type === 'island') {
-      setStageStyle('runway');
-      setFanCurvature(0);
-      setWingAngle(0);
-      setIsStaggered(false);
-      setCurrentLayout(generateSeongsuIslandPreset());
-      showToast('✨ [성수 에스팩토리 비정형 아일랜드 라운지] 프리셋이 로드되었습니다.');
-    } else if (type === 'staggered') {
-      setStageStyle('proscenium');
-      setFanCurvature(10);
-      setWingAngle(5);
-      setIsStaggered(true);
-      setCurrentLayout(generateStaggeredPreset());
-      showToast('🎬 [대학로 지그재그 시야보장 소극장] 프리셋이 로드되었습니다.');
+    if (preset.category) {
+      setEventCategory(preset.category);
     }
+    setSelectedKopisData(preset);
+    showToast(`🏛️ [${preset.name}] KOPIS/시설 데이터(${preset.seatScaleDesc}) 및 위치 정보가 자동 반영되었습니다.`);
   };
 
-  // 좌석 클릭 인터랙션 (토글 또는 도구 브러시 적용)
-  const handleSeatClick = (id: string) => {
-    setCurrentLayout({
-      ...currentLayout,
-      [id]: currentLayout[id] === selectedSeatTool ? 'empty' : selectedSeatTool,
-    });
-  };
-
-  // 부채꼴 자동 깎기 (Auto-Sculpt Fan)
-  const handleAutoSculptFan = () => {
-    const updated = { ...currentLayout };
-    seatRows.forEach((r, rIdx) => {
-      seatCols.forEach((c) => {
-        const id = `${r}${c}`;
-        const maxColsForThisRow = 8 + Math.floor(rIdx * 0.9);
-        const centerCol = 9.5;
-        const distFromCenter = Math.abs(c - centerCol);
-        if (distFromCenter > maxColsForThisRow / 2) {
-          updated[id] = 'empty';
-        }
-      });
-    });
-    setCurrentLayout(updated);
-    setFanCurvature(50);
-    setWingAngle(15);
-    showToast('✂️ 외곽 좌석들이 무대를 향하는 완벽한 부채꼴 아치형으로 깎였습니다.');
-  };
-
-  // 캔버스 전체 지우기 (자유 스케치 시작)
-  const handleClearCanvas = () => {
-    if (!confirm('현재 층의 모든 좌석을 지우고 텅 빈 캔버스에서 새로 배치하시겠습니까?')) return;
-    const cleared: Record<string, CustomSeatGrade> = {};
-    seatRows.forEach((r) => {
-      seatCols.forEach((c) => {
-        cleared[`${r}${c}`] = 'empty';
-      });
-    });
-    setCurrentLayout(cleared);
-    showToast('🧹 캔버스가 초기화되었습니다. 도구 팔레트로 원하는 위치에 좌석을 찍어 배치하세요.');
-  };
-
-  // 행 단위 일괄 지정
-  const handleRowBulkAssign = (row: string) => {
-    const updated = { ...currentLayout };
-    seatCols.forEach((c) => {
-      if (c !== 6 && c !== 13) {
-        updated[`${row}${c}`] = selectedSeatTool;
-      }
-    });
-    setCurrentLayout(updated);
-    showToast(`🪄 ${row}열 좌석들이 [${selectedSeatTool.toUpperCase()}] 등급으로 일괄 변경되었습니다.`);
-  };
-
-  // 실시간 좌석 통계 계산
-  const seatCounts = useMemo(() => {
-    let op = 0,
-      vip = 0,
-      r = 0,
-      s = 0,
-      a = 0,
-      wheelchair = 0,
-      empty = 0;
-    Object.values(currentLayout).forEach((grade) => {
-      if (grade === 'op') op++;
-      else if (grade === 'vip') vip++;
-      else if (grade === 'r') r++;
-      else if (grade === 's') s++;
-      else if (grade === 'a') a++;
-      else if (grade === 'wheelchair') wheelchair++;
-      else empty++;
-    });
-    const totalValid = op + vip + r + s + a + wheelchair;
-    const totalRev =
-      op * seatPrices.op +
-      vip * seatPrices.vip +
-      r * seatPrices.r +
-      s * seatPrices.s +
-      a * seatPrices.a +
-      wheelchair * seatPrices.wheelchair;
-    return { op, vip, r, s, a, wheelchair, empty, totalValid, totalRev };
-  }, [currentLayout, seatPrices]);
+  // =========================================================================
+  // 4. UNIVERSAL SPACE & SEATING STUDIO (5대 문화공간 통합 관리)
+  // =========================================================================
+  // (비정형 극장 좌석배치, 팝업스토어 부스·동선, 콜라보카페, 전시회, 페스티벌 엔진은 UniversalSpaceStudio가 전담)
 
   // ==========================================
   // 5. TICKETING POLICIES STATE (티켓팅 정책 & 워룸)
@@ -803,6 +510,14 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button
+              onClick={() => setIsKopisModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-stone-800 hover:bg-stone-700 text-amber-300 font-bold text-xs sm:text-sm rounded-xl border border-amber-400/40 cursor-pointer transition-all"
+            >
+              <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>KOPIS API 연동 안내</span>
+            </button>
+
+            <button
               onClick={handleSaveAllConfig}
               className="flex items-center gap-1.5 px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#fff] cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
             >
@@ -830,6 +545,37 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                 </button>
               )
             )}
+          </div>
+        </div>
+
+        {/* Executive Ops Live Bar */}
+        <div className="bg-stone-950 text-white px-5 sm:px-8 py-2.5 border-b border-stone-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3 sm:gap-6 flex-wrap font-mono">
+            <span className="flex items-center gap-1.5 text-stone-300">
+              <Users className="w-3.5 h-3.5 text-rose-400" />
+              <span>관리 회원:</span>
+              <strong className="text-white">12,840명</strong>
+              <span className="text-[10px] text-rose-400 font-bold">(제재 4건)</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-stone-300">
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <span>실시간 트래픽:</span>
+              <strong className="text-emerald-400">3,820 req/s</strong>
+              <span className="text-[10px] text-emerald-300 font-bold">(정상 99.98%)</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-stone-300">
+              <Layers className="w-3.5 h-3.5 text-purple-400" />
+              <span>범용 공간 엔진:</span>
+              <strong className="text-purple-300">공연 · 팝업 · 카페 · 전시 · 페스티벌</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-stone-400">
+            <span className="inline-flex items-center gap-1 font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40">
+              <span>🏛️ KOPIS 공공데이터 연동</span>
+            </span>
+            <span className="hidden sm:inline font-mono">|</span>
+            <span className="hidden sm:inline font-mono text-stone-400">POP-CON Smart Mapper v2.5</span>
           </div>
         </div>
 
@@ -884,9 +630,9 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>4. 자유 비정형 좌석 배치기</span>
+            <span>4. 범용 공간 &amp; 좌석 스튜디오</span>
             <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-amber-300 text-stone-950 font-black">
-              NEW
+              5대 공간 지원
             </span>
           </button>
 
@@ -1381,10 +1127,42 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     >
                       <option value="performance">🎭 공연 (뮤지컬 / 콘서트 / 연극)</option>
                       <option value="popup">🛍️ 팝업스토어 (브랜드 / 캐릭터)</option>
-                      <option value="exhibition">🖼️ 전시회 (미디어아트 / 갤러리)</option>
-                      <option value="movie">🎬 영화 / GV / 시사회</option>
                       <option value="collab_cafe">☕ 콜라보 카페 / F&amp;B</option>
+                      <option value="exhibition">🖼️ 전시회 (미디어아트 / 갤러리)</option>
+                      <option value="festival">🏕️ 야외 페스티벌 (뮤직 / 푸드)</option>
+                      <option value="movie">🎬 영화 / GV / 시사회</option>
                     </select>
+                  </div>
+
+                  {/* Category to Space Studio Quick Link */}
+                  <div className="sm:col-span-2 bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {eventCategory === 'popup' ? '🛍️' : eventCategory === 'collab_cafe' ? '☕' : eventCategory === 'exhibition' ? '🖼️' : eventCategory === 'festival' ? '🏕️' : '🎭'}
+                      </span>
+                      <div>
+                        <div className="text-xs font-black text-purple-950">
+                          맞춤 공간 엔진 연동: [{eventCategory === 'popup' ? '🛍️ 팝업스토어 (부스/타임정원)' : eventCategory === 'collab_cafe' ? '☕ 콜라보 카페 (테이블배치)' : eventCategory === 'exhibition' ? '🖼️ 전시회 (섹션/도슨트)' : eventCategory === 'festival' ? '🏕️ 야외 페스티벌 (스탠딩/피크닉)' : '🎭 공연·뮤지컬 (지정좌석)'}]
+                        </div>
+                        <div className="text-[11px] text-purple-700 mt-0.5">
+                          {eventCategory === 'popup' && 'MD판매대, 포토존, 럭키가챠, DIY존 및 30분 타임정원을 설계합니다.'}
+                          {eventCategory === 'collab_cafe' && '2인/4인 부스석, 바 카운터 및 70분 타임제 테이블 맵을 설정합니다.'}
+                          {eventCategory === 'exhibition' && '1~5전시실 룸 테마, 일방통행 관람동선 및 도슨트 투어를 설계합니다.'}
+                          {eventCategory === 'festival' && '메인 스테이지, 스탠딩 A/B 구역 및 피크닉 돗자리 존을 배치합니다.'}
+                          {eventCategory === 'performance' && '부채꼴 아치, T자 돌출무대, 발코니 및 VIP/R/S 좌석을 배치합니다.'}
+                          {eventCategory === 'movie' && '스크린 및 전석 지정석 시야각을 배치합니다.'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('seats')}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto shrink-0 transition-transform active:scale-95"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>맞춤 공간 설계기로 이동</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div className="space-y-1">
@@ -1591,26 +1369,83 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
           {activeTab === 'map' && (
             <div className="space-y-6">
               
-              {/* Presets Bar */}
-              <div className="bg-white p-4 border-2 border-stone-900 rounded-2xl shadow-[3px_3px_0px_#1c1917] space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-600">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>서울 주요 공연장 &amp; 핫스팟 원클릭 프리셋:</span>
+              {/* KOPIS API & Venue Presets Bar */}
+              <div className="bg-white p-5 border-2 border-stone-900 rounded-3xl shadow-[4px_4px_0px_#1c1917] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🏛️</span>
+                    <div>
+                      <h4 className="font-black text-sm text-stone-900">
+                        KOPIS 공공데이터 &amp; 스마트 베뉴 공간 데이터베이스 (좌석·도면 자동 연동)
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        장소를 선택하면 공공 API 시설코드 및 실제 극장 좌석도 / 팝업스토어 부스 도면이 자동 동기화됩니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsKopisModalOpen(true)}
+                    className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl border border-stone-900 shadow-xs cursor-pointer transition-all"
+                  >
+                    <Radio className="w-3.5 h-3.5 text-stone-950" />
+                    <span>KOPIS API 연동 원리 확인</span>
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {venuePresets.map((preset) => (
-                    <button
-                      key={preset.name}
-                      onClick={() => handleSelectVenuePreset(preset)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                        venueName === preset.name
-                          ? 'bg-emerald-600 text-white border-emerald-800 shadow-xs'
-                          : 'bg-stone-50 border-stone-300 text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      {preset.name}
-                    </button>
-                  ))}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                  {venuePresets.map((preset) => {
+                    const isSelected = venueName === preset.name;
+                    return (
+                      <button
+                        key={preset.name}
+                        onClick={() => handleSelectVenuePreset(preset)}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between relative ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-600 shadow-[3px_3px_0px_#059669] ring-2 ring-emerald-400'
+                            : 'bg-stone-50 border-stone-300 hover:border-stone-900 hover:bg-white text-stone-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-base">
+                              {preset.category === 'popup' ? '🛍️' : preset.category === 'collab_cafe' ? '☕' : preset.category === 'exhibition' ? '🖼️' : preset.category === 'festival' ? '🏕️' : '🎭'}
+                            </span>
+                            <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700'
+                            }`}>
+                              {preset.kopisId?.startsWith('FC') ? `KOPIS:${preset.kopisId}` : '매퍼연동'}
+                            </span>
+                          </div>
+                          <div className="font-black text-xs line-clamp-1">{preset.name}</div>
+                          <div className="text-[10px] text-stone-500 font-mono mt-0.5">{preset.seatScaleDesc}</div>
+                        </div>
+
+                        <div className="mt-2 pt-1.5 border-t border-stone-200 flex items-center justify-between text-[10px] font-bold">
+                          <span className="text-emerald-700 font-mono line-clamp-1">{preset.layoutPresetName}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-300 text-[11px] text-emerald-950 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      현재 선택: <strong>[{venueName}]</strong> — {selectedKopisData?.apiSyncStatus || '동기화 완료'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('seats')}
+                    className="font-bold text-emerald-800 hover:underline shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>이 베뉴의 공간 배치도 보기</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
@@ -1759,606 +1594,14 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 4: 자유 비정형 좌석 배치도 스튜디오 (FREEFORM & ARCHITECTURAL BUILDER) */}
+          {/* TAB 4: 유니버설 공간 & 배치 스튜디오 (UNIVERSAL SPACE & SEAT STUDIO) */}
           {/* ========================================================================= */}
           {activeTab === 'seats' && (
-            <div className="space-y-6">
-              
-              {/* Studio Header & Real Architecture Presets */}
-              <div className="bg-white border-2 border-stone-900 rounded-2xl p-5 shadow-[4px_4px_0px_#1c1917] space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-black text-purple-900 bg-purple-100 px-2.5 py-0.5 rounded-full mb-1 border border-purple-300">
-                      <Layers className="w-3.5 h-3.5 text-purple-700" />
-                      실제 극장 건축 기반 — 자유 비정형 좌석 배치 &amp; 매출 시뮬레이터
-                    </div>
-                    <h3 className="text-lg font-black text-stone-900 flex items-center gap-2">
-                      <span>{venueName}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-normal">
-                        {stageStyle === 'thrust_t' ? 'T자 돌출무대형' : stageStyle === 'runway' ? '패션쇼 런웨이형' : '부채꼴 대극장형'}
-                      </span>
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* Floor Tabs */}
-                    <div className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-300">
-                      <button
-                        onClick={() => setActiveFloor('1F')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeFloor === '1F'
-                            ? 'bg-purple-600 text-white font-black shadow-xs'
-                            : 'text-stone-600 hover:text-stone-900'
-                        }`}
-                      >
-                        1층 (Orchestra)
-                      </button>
-                      <button
-                        onClick={() => setActiveFloor('2F')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeFloor === '2F'
-                            ? 'bg-purple-600 text-white font-black shadow-xs'
-                            : 'text-stone-600 hover:text-stone-900'
-                        }`}
-                      >
-                        2층 (Balcony)
-                      </button>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-[11px] font-bold text-stone-500">
-                        {activeFloor} 유효 좌석 / 예상 매출
-                      </div>
-                      <div className="text-base font-black text-rose-600 font-mono">
-                        {seatCounts.totalValid}석 / ₩{seatCounts.totalRev.toLocaleString()}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        showToast('💾 자유 비정형 좌석 배치도와 가격 데이터가 저장되었습니다!');
-                      }}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-sm cursor-pointer"
-                    >
-                      배치 확정 및 저장
-                    </button>
-                  </div>
-                </div>
-
-                {/* 5 Real Venue Architecture Presets */}
-                <div className="space-y-1.5 pt-2 border-t border-stone-200">
-                  <div className="flex items-center justify-between text-xs font-bold text-stone-600">
-                    <span className="flex items-center gap-1.5">
-                      <Wand2 className="w-3.5 h-3.5 text-purple-600" />
-                      실제 건물 구조별 비정형 프리셋 불러오기 (네모 모양 탈피):
-                    </span>
-                    <span className="text-[11px] text-stone-400">원클릭으로 극장 고유 구조 자동 생성</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <button
-                      onClick={() => loadPreset('fan')}
-                      className="p-2 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-colors"
-                    >
-                      <div className="text-xs font-black text-amber-950">🏛️ 샤롯데 부채꼴 대극장</div>
-                      <div className="text-[10px] text-amber-800">3구역 곡선 아치 + OP석</div>
-                    </button>
-
-                    <button
-                      onClick={() => loadPreset('t_stage')}
-                      className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-xl text-left cursor-pointer transition-colors"
-                    >
-                      <div className="text-xs font-black text-rose-950">🎤 KSPO DOME T자 돌출</div>
-                      <div className="text-[10px] text-rose-800">돌출 런웨이 + VIP 펜스석</div>
-                    </button>
-
-                    <button
-                      onClick={() => loadPreset('balcony')}
-                      className="p-2 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl text-left cursor-pointer transition-colors"
-                    >
-                      <div className="text-xs font-black text-purple-950">🎭 오페라극장 발코니</div>
-                      <div className="text-[10px] text-purple-800">좌우 박스석 + 2층 발코니</div>
-                    </button>
-
-                    <button
-                      onClick={() => loadPreset('island')}
-                      className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-left cursor-pointer transition-colors"
-                    >
-                      <div className="text-xs font-black text-emerald-950">✨ 성수 팝업 아일랜드</div>
-                      <div className="text-[10px] text-emerald-800">지그재그 비정형 라운지</div>
-                    </button>
-
-                    <button
-                      onClick={() => loadPreset('staggered')}
-                      className="p-2 bg-sky-50 hover:bg-sky-100 border border-sky-300 rounded-xl text-left cursor-pointer transition-colors"
-                    >
-                      <div className="text-xs font-black text-sky-950">🎬 지그재그 시야 소극장</div>
-                      <div className="text-[10px] text-sky-800">앞사람 가림 없는 교차형</div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Pricing Inputs */}
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-2 border-t border-stone-200">
-                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-300">
-                    <div className="text-[10px] font-black text-amber-900">OP석 (무대앞) ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.op}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, op: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-amber-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-amber-700 font-mono mt-0.5">{seatCounts.op}석</div>
-                  </div>
-
-                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-300">
-                    <div className="text-[10px] font-black text-amber-900">VIP석 ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.vip}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, vip: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-amber-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-amber-700 font-mono mt-0.5">{seatCounts.vip}석</div>
-                  </div>
-
-                  <div className="p-2 bg-purple-50 rounded-xl border border-purple-300">
-                    <div className="text-[10px] font-black text-purple-900">R석 ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.r}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, r: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-purple-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-purple-700 font-mono mt-0.5">{seatCounts.r}석</div>
-                  </div>
-
-                  <div className="p-2 bg-sky-50 rounded-xl border border-sky-300">
-                    <div className="text-[10px] font-black text-sky-900">S석 ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.s}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, s: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-sky-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-sky-700 font-mono mt-0.5">{seatCounts.s}석</div>
-                  </div>
-
-                  <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-300">
-                    <div className="text-[10px] font-black text-emerald-900">A석 ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.a}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, a: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-emerald-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-emerald-700 font-mono mt-0.5">{seatCounts.a}석</div>
-                  </div>
-
-                  <div className="p-2 bg-pink-50 rounded-xl border border-pink-300">
-                    <div className="text-[10px] font-black text-pink-900">휠체어석 ₩</div>
-                    <input
-                      type="number"
-                      step={5000}
-                      value={seatPrices.wheelchair}
-                      onChange={(e) => setSeatPrices({ ...seatPrices, wheelchair: parseInt(e.target.value) || 0 })}
-                      className="w-full px-2 py-0.5 mt-0.5 bg-white border border-pink-300 rounded font-mono font-bold text-xs"
-                    />
-                    <div className="text-[10px] text-pink-700 font-mono mt-0.5">{seatCounts.wheelchair}석</div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Main Studio Controls & Visual Freeform Canvas */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                
-                {/* Left Col: Tool Palette & Geometry Sliders (1 col) */}
-                <div className="space-y-4">
-                  
-                  {/* Curvature & Architectural Sliders */}
-                  <div className="bg-white border-2 border-stone-900 rounded-2xl p-4 shadow-[4px_4px_0px_#1c1917] space-y-3">
-                    <h4 className="text-xs font-black text-stone-800 uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5 text-amber-500" />
-                        형태 및 곡률 정밀 조절
-                      </span>
-                      <span className="text-[10px] text-stone-400">곡선/경사각</span>
-                    </h4>
-
-                    {/* Curvature slider */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-bold text-stone-600">
-                        <span>부채꼴 곡률 (Curvature):</span>
-                        <span className="font-mono text-purple-600">{fanCurvature}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={fanCurvature}
-                        onChange={(e) => setFanCurvature(parseInt(e.target.value))}
-                        className="w-full accent-purple-600 cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[10px] text-stone-400">
-                        <span>일자 평면(0%)</span>
-                        <span>표준 아치(50%)</span>
-                        <span>원형 극장(100%)</span>
-                      </div>
-                    </div>
-
-                    {/* Wing Angle slider */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-bold text-stone-600">
-                        <span>좌/우 날개 안쪽 회전각:</span>
-                        <span className="font-mono text-amber-600">{wingAngle}°</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="25"
-                        value={wingAngle}
-                        onChange={(e) => setWingAngle(parseInt(e.target.value))}
-                        className="w-full accent-amber-500 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Stagger Toggle */}
-                    <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-stone-800">지그재그 시야각(Stagger)</div>
-                        <div className="text-[10px] text-stone-400">짝수 행 교차 오프셋</div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isStaggered}
-                        onChange={(e) => setIsStaggered(e.target.checked)}
-                        className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Quick Sculpt buttons */}
-                    <div className="pt-2 border-t border-stone-200 grid grid-cols-2 gap-2">
-                      <button
-                        onClick={handleAutoSculptFan}
-                        className="p-1.5 bg-stone-100 hover:bg-purple-100 rounded-lg text-[11px] font-bold text-stone-800 flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                        title="네모 모서리를 깎아 부채꼴 아치로 성형"
-                      >
-                        <Scissors className="w-3 h-3 text-purple-600" />
-                        <span>부채꼴 깎기</span>
-                      </button>
-
-                      <button
-                        onClick={handleClearCanvas}
-                        className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded-lg text-[11px] font-bold text-rose-800 flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                        title="모든 좌석을 지우고 백지에서 자유 드로잉"
-                      >
-                        <Eraser className="w-3 h-3 text-rose-600" />
-                        <span>전체 지우기</span>
-                      </button>
-                    </div>
-
-                  </div>
-
-                  {/* Seat Grade Palette */}
-                  <div className="bg-white border-2 border-stone-900 rounded-2xl p-4 shadow-[4px_4px_0px_#1c1917] space-y-3">
-                    <h4 className="text-xs font-black text-stone-800 uppercase tracking-wider">
-                      좌석 등급 도구 팔레트
-                    </h4>
-
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => setSelectedSeatTool('op')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'op'
-                            ? 'bg-amber-200 border-2 border-amber-600 text-amber-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-amber-500 border border-amber-700" />
-                          OP석 (₩{seatPrices.op.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.op}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('vip')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'vip'
-                            ? 'bg-amber-100 border-2 border-amber-500 text-amber-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-amber-400 border border-amber-600" />
-                          VIP석 (₩{seatPrices.vip.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.vip}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('r')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'r'
-                            ? 'bg-purple-100 border-2 border-purple-500 text-purple-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-purple-400 border border-purple-600" />
-                          R석 (₩{seatPrices.r.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.r}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('s')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 's'
-                            ? 'bg-sky-100 border-2 border-sky-500 text-sky-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-sky-400 border border-sky-600" />
-                          S석 (₩{seatPrices.s.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.s}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('a')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'a'
-                            ? 'bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-emerald-400 border border-emerald-600" />
-                          A석 (₩{seatPrices.a.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.a}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('wheelchair')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'wheelchair'
-                            ? 'bg-pink-100 border-2 border-pink-500 text-pink-950 font-black shadow-xs'
-                            : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="w-3.5 h-3.5 rounded bg-pink-400 border border-pink-600" />
-                          휠체어석 (₩{seatPrices.wheelchair.toLocaleString()})
-                        </span>
-                        <span className="font-mono text-[11px]">{seatCounts.wheelchair}석</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedSeatTool('empty')}
-                        className={`w-full p-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedSeatTool === 'empty'
-                            ? 'bg-stone-200 border-2 border-stone-800 text-stone-900 font-black'
-                            : 'bg-stone-50 border border-stone-200 text-stone-500 hover:bg-stone-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Eraser className="w-3.5 h-3.5 text-stone-600" />
-                          좌석 지우개 / 통로 (빈칸)
-                        </span>
-                        <span className="font-mono text-[11px]">지우개</span>
-                      </button>
-                    </div>
-
-                    {/* Row bulk buttons */}
-                    <div className="pt-2 border-t border-stone-200 space-y-1">
-                      <div className="text-[10px] font-bold text-stone-500">행(Row) 일괄 등급 지정:</div>
-                      <div className="grid grid-cols-6 gap-1">
-                        {seatRows.map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => handleRowBulkAssign(r)}
-                            className="py-1 bg-stone-100 hover:bg-amber-200 rounded text-[10px] font-mono font-bold text-stone-800 transition-colors cursor-pointer"
-                          >
-                            {r}열
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Right Col: Interactive Visual Non-Rectangular Canvas (3 cols) */}
-                <div className="lg:col-span-3 bg-white border-2 border-stone-900 rounded-2xl p-6 shadow-[4px_4px_0px_#1c1917] flex flex-col items-center overflow-hidden">
-                  
-                  {/* Stage Visual Representation */}
-                  <div className="w-full max-w-2xl text-center mb-6 relative">
-                    
-                    {stageStyle === 'thrust_t' ? (
-                      // T-Stage Projection
-                      <div className="flex flex-col items-center">
-                        <div className="w-full py-2.5 bg-stone-950 text-amber-400 font-black text-xs tracking-widest rounded-t-xl border-2 border-amber-400 uppercase shadow-md">
-                          🎤 MAIN CONCERT STAGE
-                        </div>
-                        {/* Thrust runway extending down */}
-                        <div className="w-24 h-12 bg-amber-400/90 border-x-2 border-b-2 border-stone-950 text-[10px] font-black text-stone-950 flex items-center justify-center shadow-inner">
-                          RUNWAY ⬇
-                        </div>
-                      </div>
-                    ) : stageStyle === 'runway' ? (
-                      // Fashion Runway
-                      <div className="flex flex-col items-center">
-                        <div className="w-3/4 py-2 bg-stone-950 text-emerald-400 font-black text-xs tracking-widest rounded-xl border-2 border-emerald-400 uppercase">
-                          ✨ POP-UP BRAND RUNWAY &amp; MEDIA WALL
-                        </div>
-                      </div>
-                    ) : (
-                      // Classic Proscenium Curved Stage
-                      <div
-                        className="w-full py-2.5 bg-stone-950 text-amber-400 font-black text-xs tracking-widest rounded-2xl border-2 border-amber-400 uppercase shadow-md transition-transform"
-                        style={{
-                          borderRadius: `${fanCurvature + 16}px ${fanCurvature + 16}px 8px 8px`,
-                          transform: `scaleY(${1 + fanCurvature * 0.003})`,
-                        }}
-                      >
-                        🎪 MAIN THEATER STAGE / PROSCENIUM
-                      </div>
-                    )}
-
-                    <p className="text-[11px] text-stone-400 mt-2">
-                      💡 원하는 좌석을 클릭하면 선택된 등급으로 변환되거나 생성/삭제됩니다. (곡률/경사각 슬라이더로 비정형 형태 제어)
-                    </p>
-                  </div>
-
-                  {/* Freeform Curved & Multi-Block Seat Matrix */}
-                  <div className="w-full overflow-x-auto pb-6">
-                    <div className="min-w-[700px] max-w-4xl mx-auto space-y-2.5 py-2">
-                      {seatRows.map((row, rIdx) => {
-                        // Calculate curved transform offset based on curvature slider
-                        const curveOffset = Math.sin((rIdx / (seatRows.length - 1)) * Math.PI) * (fanCurvature * 0.15);
-                        // Stagger offset for alternate rows
-                        const staggerPadding = isStaggered && rIdx % 2 === 1 ? '14px' : '0px';
-
-                        return (
-                          <div
-                            key={row}
-                            className="flex items-center gap-2 transition-transform duration-200"
-                            style={{
-                              paddingLeft: staggerPadding,
-                              transform: `translateY(${curveOffset}px)`,
-                            }}
-                          >
-                            <span className="w-6 text-center font-mono font-bold text-xs text-stone-500 flex-shrink-0">
-                              {row}
-                            </span>
-
-                            {/* 3 Blocks: Left Wing (angled), Center Block, Right Wing (angled) */}
-                            <div className="flex-1 flex items-center justify-between gap-3">
-                              
-                              {/* Left Wing Block (Cols 1-5, angled inwards) */}
-                              <div
-                                className="flex items-center gap-1.5 transition-transform duration-200"
-                                style={{
-                                  transform: `rotate(${wingAngle * 0.7}deg) scale(${1 - (rIdx === 0 ? 0.08 : 0)})`,
-                                  transformOrigin: 'right center',
-                                }}
-                              >
-                                {[1, 2, 3, 4, 5].map((col) => {
-                                  const seatId = `${row}${col}`;
-                                  const grade = currentLayout[seatId] || 'empty';
-                                  return (
-                                    <SeatCell
-                                      key={seatId}
-                                      id={seatId}
-                                      col={col}
-                                      grade={grade}
-                                      onClick={() => handleSeatClick(seatId)}
-                                    />
-                                  );
-                                })}
-                              </div>
-
-                              {/* Main Center Block (Cols 7-12, curved) */}
-                              <div
-                                className="flex items-center gap-1.5 transition-transform duration-200"
-                                style={{
-                                  transform: `scaleX(${1 + (rIdx / seatRows.length) * (fanCurvature * 0.002)})`,
-                                }}
-                              >
-                                {[7, 8, 9, 10, 11, 12].map((col) => {
-                                  const seatId = `${row}${col}`;
-                                  const grade = currentLayout[seatId] || 'empty';
-                                  return (
-                                    <SeatCell
-                                      key={seatId}
-                                      id={seatId}
-                                      col={col}
-                                      grade={grade}
-                                      onClick={() => handleSeatClick(seatId)}
-                                    />
-                                  );
-                                })}
-                              </div>
-
-                              {/* Right Wing Block (Cols 14-18, angled inwards) */}
-                              <div
-                                className="flex items-center gap-1.5 transition-transform duration-200"
-                                style={{
-                                  transform: `rotate(${-wingAngle * 0.7}deg) scale(${1 - (rIdx === 0 ? 0.08 : 0)})`,
-                                  transformOrigin: 'left center',
-                                }}
-                              >
-                                {[14, 15, 16, 17, 18].map((col) => {
-                                  const seatId = `${row}${col}`;
-                                  const grade = currentLayout[seatId] || 'empty';
-                                  return (
-                                    <SeatCell
-                                      key={seatId}
-                                      id={seatId}
-                                      col={col}
-                                      grade={grade}
-                                      onClick={() => handleSeatClick(seatId)}
-                                    />
-                                  );
-                                })}
-                              </div>
-
-                            </div>
-
-                            <span className="w-6 text-center font-mono font-bold text-xs text-stone-500 flex-shrink-0">
-                              {row}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Legend Bar */}
-                  <div className="w-full flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-stone-200 text-xs text-stone-600 font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-amber-500 border border-amber-700" />
-                      OP석
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-amber-400 border border-amber-600" />
-                      VIP석
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-purple-400 border border-purple-600" />
-                      R석
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-sky-400 border border-sky-600" />
-                      S석
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-emerald-400 border border-emerald-600" />
-                      A석
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded bg-pink-400 border border-pink-600" />
-                      휠체어석
-                    </span>
-                    <span className="flex items-center gap-1.5 text-stone-400">
-                      <span className="w-3.5 h-3.5 rounded border border-dashed border-stone-300" />
-                      통로 / 공백
-                    </span>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
+            <UniversalSpaceStudio
+              venueName={venueName}
+              eventCategory={eventCategory}
+              onShowToast={showToast}
+            />
           )}
 
           {/* ========================================================= */}
@@ -2915,50 +2158,116 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         </div>
       )}
 
+      {/* ========================================================= */}
+      {/* KOPIS API EXPLAINER & TESTER MODAL */}
+      {/* ========================================================= */}
+      {isKopisModalOpen && (
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-stone-900 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_#1c1917] p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b-2 border-stone-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400 text-stone-950 flex items-center justify-center font-black text-xl shadow-inner">
+                  🏛️
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-stone-900">
+                    KOPIS (공연예술통합전산망) 공공 API &amp; 좌석 데이터 연동 아키텍처
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    공공데이터포털 KOPIS Open API 현황 및 팝업/공연장 공간 매핑 가이드
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsKopisModalOpen(false)}
+                className="p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Q&A 1: API에서 좌석 좌표를 받아올 수 있는가? */}
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 space-y-2">
+              <div className="font-black text-amber-900 text-sm flex items-center gap-2">
+                <span>❓ Q. 특정 장소를 정하면 그 장소의 실제 좌석 배치도를 받아올 수 있는 공식 API가 있을까요?</span>
+              </div>
+              <div className="text-xs text-amber-950 leading-relaxed space-y-2 font-medium">
+                <p>
+                  <strong>결론:</strong> 문화체육관광부 <strong>KOPIS(공연예술통합전산망) Open API</strong>는 전국의 공연시설명, 주소, <strong>총 객석수 (seatscale)</strong>, <strong>장애인석 규모</strong>, 무대 규모 등의 메타데이터는 공식 제공하지만, <strong>개별 좌석의 2D/3D 좌표나 세부 좌석배치도 도면은 API로 제공되지 않습니다.</strong>
+                </p>
+                <p>
+                  <strong>이유:</strong> 극장별 상세 좌석배치도와 시야각, 1열 1번 단위의 실시간 예매 시스템은 각 예매처(인터파크, 예스24, 티켓링크, 멜론티켓 등) 및 전문 CAD 도면 개발사의 <strong>영업 비밀이자 고유 상용 자산</strong>이기 때문입니다.
+                </p>
+                <p>
+                  <strong>팝업스토어 / 전시회의 경우:</strong> 성수동 팝업스토어나 백화점 팝업존은 <strong>고정된 좌석이 없는 가변 임대 공간(Flex Space)</strong>입니다. 매 행사마다 가벽, MD 판매대, 포토존, 대기열이 완전히 새로 구축되므로 물리적으로 사전에 정의된 좌석 API가 존재할 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            {/* Solution: How POP-CON Solves It */}
+            <div className="bg-stone-900 text-white rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-black text-amber-400">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>POP-CON의 스마트 해결책: [공공 API 메타데이터 + 스마트 베뉴 매퍼 v2.5]</span>
+              </div>
+              <p className="text-xs text-stone-300 leading-relaxed">
+                POP-CON은 KOPIS의 공식 시설 코드(<code>mt10id</code>)와 주소/총좌석수를 수집한 후, 당사의 <strong>스마트 베뉴 공간 데이터베이스</strong>와 1:1 매핑하여 <strong>장소 선택 즉시 실제 도면(샤롯데 부채꼴 1,241석, KSPO T자 아레나, 성수 에스팩토리 팝업 부스 등)을 100% 자동 렌더링</strong>합니다.
+              </p>
+            </div>
+
+            {/* Live API Response Simulator */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-black text-stone-800">
+                <span className="flex items-center gap-1.5">
+                  <Code2 className="w-4 h-4 text-purple-600" />
+                  <span>실시간 KOPIS API 응답 페이로드 시뮬레이션 (현재 선택: {selectedKopisData?.name || venueName})</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                  HTTP 200 OK
+                </span>
+              </div>
+
+              <div className="bg-stone-950 text-stone-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto border-2 border-stone-800">
+                <pre>{JSON.stringify({
+                  request: {
+                    endpoint: "http://www.kopis.or.kr/openApi/restful/prfplc",
+                    serviceKey: "POPCON_SECRET_KEY_PROD",
+                    id: selectedKopisData?.kopisId || "FC080001",
+                  },
+                  response: {
+                    fcltynm: selectedKopisData?.name || venueName,
+                    mt10id: selectedKopisData?.kopisId || "FC080001",
+                    seatscale: selectedKopisData?.totalSeats || 1241,
+                    seatScaleDesc: selectedKopisData?.seatScaleDesc || "1,241석 (1층 725석 / 2층 516석)",
+                    adres: selectedKopisData?.address || venueAddress,
+                    la: selectedKopisData?.lat || venueLat,
+                    lo: selectedKopisData?.lng || venueLng,
+                    category: selectedKopisData?.category || eventCategory,
+                    popconAutoMapping: {
+                      status: "SUCCESS_200",
+                      mappedPreset: selectedKopisData?.layoutPresetName || "부채꼴 대극장 3구역",
+                      spaceMode: selectedKopisData?.spaceMode || "theatre",
+                    }
+                  }
+                }, null, 2)}</pre>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => {
+                  setIsKopisModalOpen(false);
+                  setActiveTab('seats');
+                }}
+                className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer"
+              >
+                현재 선택된 공간 배치기 바로 확인하기 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
-  );
-};
-
-// Seat Cell Component for Freeform Matrix
-interface SeatCellProps {
-  id: string;
-  col: number;
-  grade: CustomSeatGrade;
-  onClick: () => void;
-}
-
-const SeatCell: React.FC<SeatCellProps> = ({ id, col, grade, onClick }) => {
-  let bgClass = 'border border-dashed border-stone-200 bg-transparent text-stone-300 opacity-40 hover:opacity-90';
-  let label = '';
-
-  if (grade === 'op') {
-    bgClass = 'bg-amber-400 border-2 border-amber-600 text-amber-950 font-black shadow-xs hover:scale-110';
-    label = 'OP';
-  } else if (grade === 'vip') {
-    bgClass = 'bg-amber-300 border-2 border-amber-500 text-amber-950 font-black shadow-xs hover:scale-110';
-    label = `${col}`;
-  } else if (grade === 'r') {
-    bgClass = 'bg-purple-300 border-2 border-purple-500 text-purple-950 font-black shadow-xs hover:scale-110';
-    label = `${col}`;
-  } else if (grade === 's') {
-    bgClass = 'bg-sky-300 border-2 border-sky-500 text-sky-950 font-black shadow-xs hover:scale-110';
-    label = `${col}`;
-  } else if (grade === 'a') {
-    bgClass = 'bg-emerald-300 border-2 border-emerald-500 text-emerald-950 font-black shadow-xs hover:scale-110';
-    label = `${col}`;
-  } else if (grade === 'wheelchair') {
-    bgClass = 'bg-pink-300 border-2 border-pink-500 text-pink-950 font-black shadow-xs hover:scale-110';
-    label = '♿';
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[10px] transition-all cursor-pointer select-none ${bgClass}`}
-      title={`${id} 좌석 (${grade.toUpperCase()}) - 클릭하여 등급 변경 또는 토글`}
-    >
-      {label}
-    </button>
   );
 };
