@@ -36,6 +36,11 @@ import {
   LogOut,
   Eraser,
   Wand2,
+  Plus,
+  X,
+  Palette,
+  Tag,
+  Box,
 } from 'lucide-react';
 
 export type SandboxTileType =
@@ -71,6 +76,37 @@ export interface SandboxTile {
   price?: number;
   capacity?: number;
   note?: string;
+
+  // Custom & Multi-tile block attributes
+  isCustom?: boolean;
+  customDefId?: string;
+  width?: number; // width in tiles (1~4)
+  height?: number; // height in tiles (1~4)
+  isOrigin?: boolean; // true if top-left cell, false if child covered cell
+  parentOriginId?: string;
+  emoji?: string;
+  customBg?: string;
+  customBorder?: string;
+  customColor?: string;
+  isSeat?: boolean;
+  seatGrade?: string;
+}
+
+export interface CustomBlockDefinition {
+  id: string;
+  name: string;
+  category: 'seat' | 'booth' | 'facility';
+  width: number; // 1 ~ 4
+  height: number; // 1 ~ 4
+  emoji: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  price?: number;
+  capacity?: number;
+  isSeat?: boolean;
+  seatGrade?: string;
+  description?: string;
 }
 
 export interface CustomGridSandboxStudioProps {
@@ -107,7 +143,7 @@ const TOOLS_CONFIG: ToolMeta[] = [
     color: 'text-stone-800',
     bgColor: 'bg-stone-100',
     borderColor: 'border-stone-400',
-    description: '타일을 클릭하여 이름, 가격, 메모를 확인하고 편집합니다.',
+    description: '타일을 클릭하여 이름, 크기, 가격, 메모를 확인하고 자유롭게 편집합니다.',
   },
   {
     type: 'eraser',
@@ -196,7 +232,7 @@ const TOOLS_CONFIG: ToolMeta[] = [
     description: '관람객 통행을 차단하는 2.4m 방음 및 디스플레이 가벽입니다.',
   },
 
-  // --- Seats ---
+  // --- Standard Seats ---
   {
     type: 'seat_vip',
     label: '👑 VIP석 (골드)',
@@ -317,7 +353,7 @@ const TOOLS_CONFIG: ToolMeta[] = [
     category: 'booth',
     icon: Mic2,
     color: 'text-purple-100',
-    bgColor: 'bg-purple-900',
+    bgColor: 'bg-purple-950',
     borderColor: 'border-amber-400',
     badge: 'STAGE',
     description: '공연, 아티스트 토크, DJ 부스용 메인 단상입니다.',
@@ -345,6 +381,70 @@ const TOOLS_CONFIG: ToolMeta[] = [
   },
 ];
 
+// Pre-registered initial custom blocks
+const INITIAL_CUSTOM_BLOCKS: CustomBlockDefinition[] = [
+  {
+    id: 'cb-vvip-sofa',
+    name: 'VVIP 2인 커플 소파석',
+    category: 'seat',
+    width: 2,
+    height: 1,
+    emoji: '🛋️',
+    bgColor: 'bg-amber-400',
+    borderColor: 'border-amber-600',
+    textColor: 'text-amber-950',
+    price: 250000,
+    capacity: 2,
+    isSeat: true,
+    seatGrade: 'VVIP',
+    description: '최고급 프리미엄 2인 가죽 리클라이너 소파석 (웰컴 샴페인 포함)',
+  },
+  {
+    id: 'cb-family-lounge',
+    name: '4인 패밀리 라운지석',
+    category: 'seat',
+    width: 2,
+    height: 2,
+    emoji: '👑',
+    bgColor: 'bg-purple-400',
+    borderColor: 'border-purple-600',
+    textColor: 'text-purple-950',
+    price: 360000,
+    capacity: 4,
+    isSeat: true,
+    seatGrade: 'FAMILY VIP',
+    description: '가족 및 소모임을 위한 4인 프라이빗 박스 라운지석',
+  },
+  {
+    id: 'cb-giant-photo',
+    name: '초대형 3D 포토월 부스',
+    category: 'booth',
+    width: 2,
+    height: 2,
+    emoji: '📸',
+    bgColor: 'bg-yellow-300',
+    borderColor: 'border-yellow-600',
+    textColor: 'text-yellow-950',
+    capacity: 8,
+    isSeat: false,
+    description: '3.5m 자이언트 캐릭터 조형물 & 입체 네온 포토존',
+  },
+  {
+    id: 'cb-flagship-store',
+    name: '메인 MD 플래그십 쇼룸',
+    category: 'booth',
+    width: 3,
+    height: 2,
+    emoji: '🛍️',
+    bgColor: 'bg-rose-300',
+    borderColor: 'border-rose-600',
+    textColor: 'text-rose-950',
+    capacity: 20,
+    isSeat: false,
+    description: '한정판 의류, 피규어 및 POS 결제 4대를 통합한 대형 쇼룸',
+  },
+];
+
 // ----------------------------------------------------
 // Pre-built Layout Templates
 // ----------------------------------------------------
@@ -353,7 +453,15 @@ const PRESET_TEMPLATES = {
     const tiles: SandboxTile[] = [];
     for (let y = 0; y < GRID_ROWS; y++) {
       for (let x = 0; x < GRID_COLS; x++) {
-        tiles.push({ id: `t_${x}_${y}`, x, y, type: 'empty' });
+        tiles.push({
+          id: `t_${x}_${y}`,
+          x,
+          y,
+          type: 'empty',
+          width: 1,
+          height: 1,
+          isOrigin: true,
+        });
       }
     }
     return tiles;
@@ -390,12 +498,6 @@ const PRESET_TEMPLATES = {
       setTile(x, 4, 'path_arrow_r', '관람 동선');
     }
 
-    // Photo Zones on top
-    setTile(3, 2, 'booth_photo', '시그니처 조형물');
-    setTile(4, 2, 'booth_photo', '시그니처 조형물');
-    setTile(7, 2, 'booth_photo', '네온 포토월');
-    setTile(8, 2, 'booth_photo', '네온 포토월');
-
     // Walls partitioning zones
     for (let x = 0; x < 20; x++) {
       setTile(x, 0, 'wall');
@@ -406,11 +508,52 @@ const PRESET_TEMPLATES = {
       if (y !== 10) setTile(19, y, 'wall');
     }
 
-    // Merch Store area
-    setTile(12, 2, 'booth_merch', '한정판 피규어');
-    setTile(13, 2, 'booth_merch', '인형·쿠션');
-    setTile(15, 2, 'booth_merch', '의류·에코백');
-    setTile(16, 2, 'booth_merch', '계산대 POS');
+    const setCustomBlock = (x: number, y: number, def: CustomBlockDefinition) => {
+      const rootId = `t_${x}_${y}`;
+      for (let dy = 0; dy < def.height; dy++) {
+        for (let dx = 0; dx < def.width; dx++) {
+          const t = map.get(`${x + dx},${y + dy}`);
+          if (t) {
+            if (dx === 0 && dy === 0) {
+              t.type = def.isSeat ? 'seat_vip' : 'booth_merch';
+              t.isCustom = true;
+              t.customDefId = def.id;
+              t.label = def.name;
+              t.width = def.width;
+              t.height = def.height;
+              t.isOrigin = true;
+              t.parentOriginId = undefined;
+              t.emoji = def.emoji;
+              t.customBg = def.bgColor;
+              t.customBorder = def.borderColor;
+              t.customColor = def.textColor;
+              t.isSeat = def.isSeat;
+              t.seatGrade = def.seatGrade;
+              t.price = def.price;
+              t.capacity = def.capacity;
+              t.note = def.description;
+            } else {
+              t.type = def.isSeat ? 'seat_vip' : 'booth_merch';
+              t.isCustom = true;
+              t.customDefId = def.id;
+              t.isOrigin = false;
+              t.parentOriginId = rootId;
+              t.width = 1;
+              t.height = 1;
+            }
+          }
+        }
+      }
+    };
+
+    // Custom 2x2 Photo Wall at (3, 2)
+    setCustomBlock(3, 2, INITIAL_CUSTOM_BLOCKS[2]);
+
+    // Custom 3x2 Flagship Merch Showroom at (12, 2)
+    setCustomBlock(12, 2, INITIAL_CUSTOM_BLOCKS[3]);
+
+    // Custom 2x1 VVIP Sofa Seat at (7, 7)
+    setCustomBlock(7, 7, INITIAL_CUSTOM_BLOCKS[0]);
 
     // Downward flow
     setTile(18, 5, 'path_arrow_d');
@@ -418,16 +561,14 @@ const PRESET_TEMPLATES = {
     setTile(18, 7, 'path_arrow_d');
     setTile(18, 8, 'path_arrow_d');
 
-    // Gacha & DIY zone
-    setTile(15, 7, 'booth_gacha', '가챠 뽑기 1');
-    setTile(16, 7, 'booth_gacha', '가챠 뽑기 2');
-    setTile(12, 7, 'cafe_table', 'DIY 체험 테이블');
-    setTile(13, 7, 'cafe_table', 'DIY 체험 테이블');
+    // Gacha & Cafe Table
+    setTile(15, 7, 'booth_gacha', '가챠 머신');
+    setTile(16, 7, 'booth_gacha', '가챠 머신');
+    setTile(12, 7, 'cafe_table', '체험 테이블');
+    setTile(13, 7, 'cafe_table', '체험 테이블');
 
     // Return path to exit
-    for (let x = 18; x >= 18; x--) {
-      setTile(x, 9, 'path_arrow_d');
-    }
+    setTile(18, 9, 'path_arrow_d');
     setTile(18, 10, 'exit', '퇴장 출구');
 
     // Interior separator walls
@@ -456,7 +597,6 @@ const PRESET_TEMPLATES = {
       setTile(x, 1, 'stage', 'MAIN STAGE');
       setTile(x, 2, 'stage', 'MAIN STAGE');
     }
-    // T-Thrust runway
     setTile(9, 3, 'stage', '돌출무대');
     setTile(10, 3, 'stage', '돌출무대');
     setTile(9, 4, 'stage', '돌출무대');
@@ -579,8 +719,41 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     }
     return PRESET_TEMPLATES.popup_loop();
   });
-  const [activeTool, setActiveTool] = useState<SandboxTileType | 'eraser' | 'inspect'>('path');
-  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+
+  // Active Tool & Custom Blocks State
+  const [activeTool, setActiveTool] = useState<SandboxTileType | 'eraser' | 'inspect' | 'custom'>('path');
+  const [activeCustomBlockId, setActiveCustomBlockId] = useState<string | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('select') === 'sofa') return 't_7_7';
+      if (p.get('select') === 'store') return 't_12_2';
+      if (p.get('select') === 'photo') return 't_3_2';
+    }
+    return null;
+  });
+
+  // User-created Custom Block Definitions
+  const [customBlocks, setCustomBlocks] = useState<CustomBlockDefinition[]>(INITIAL_CUSTOM_BLOCKS);
+
+  // Modal: New Custom Block Creator State
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('openCustomModal') === 'true';
+    }
+    return false;
+  });
+  const [modalName, setModalName] = useState('');
+  const [modalCategory, setModalCategory] = useState<'seat' | 'booth' | 'facility'>('seat');
+  const [modalWidth, setModalWidth] = useState<number>(2);
+  const [modalHeight, setModalHeight] = useState<number>(1);
+  const [modalEmoji, setModalEmoji] = useState('🛋️');
+  const [modalColorTheme, setModalColorTheme] = useState('gold');
+  const [modalPrice, setModalPrice] = useState<number>(250000);
+  const [modalCapacity, setModalCapacity] = useState<number>(2);
+  const [modalSeatGrade, setModalSeatGrade] = useState('VVIP');
+  const [modalDesc, setModalDesc] = useState('');
 
   // Mouse Drag Drawing State
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -606,17 +779,25 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     return map;
   }, [tiles]);
 
+  // Find selected tile (or its root origin if a covered child was selected)
   const selectedTile = useMemo(() => {
-    return tiles.find((t) => t.id === selectedTileId) || null;
+    if (!selectedTileId) return null;
+    const direct = tiles.find((t) => t.id === selectedTileId);
+    if (!direct) return null;
+    if (direct.parentOriginId) {
+      return tiles.find((t) => t.id === direct.parentOriginId) || direct;
+    }
+    return direct;
   }, [tiles, selectedTileId]);
 
-  // Statistics calculation
+  // Statistics calculation (including custom seats & multi-tile blocks)
   const stats = useMemo(() => {
     let vipSeats = 0;
     let rSeats = 0;
     let sSeats = 0;
     let stdSeats = 0;
     let wheelSeats = 0;
+    let customSeats = 0;
     let pathCount = 0;
     let boothCount = 0;
     let totalRevenue = 0;
@@ -624,21 +805,28 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     let exits = 0;
 
     tiles.forEach((t) => {
-      if (t.type === 'seat_vip') {
-        vipSeats++;
-        totalRevenue += t.price || 170000;
+      // Only count origin cells for multi-tile blocks to avoid duplicate counts
+      if (t.isOrigin === false) return;
+
+      if (t.isCustom && t.isSeat) {
+        const count = t.capacity || 1;
+        customSeats += count;
+        totalRevenue += (t.price || 0) * count;
+      } else if (t.type === 'seat_vip') {
+        vipSeats += t.capacity || 1;
+        totalRevenue += (t.price || 170000) * (t.capacity || 1);
       } else if (t.type === 'seat_r') {
-        rSeats++;
-        totalRevenue += t.price || 140000;
+        rSeats += t.capacity || 1;
+        totalRevenue += (t.price || 140000) * (t.capacity || 1);
       } else if (t.type === 'seat_s') {
-        sSeats++;
-        totalRevenue += t.price || 100000;
+        sSeats += t.capacity || 1;
+        totalRevenue += (t.price || 100000) * (t.capacity || 1);
       } else if (t.type === 'seat_std') {
-        stdSeats++;
-        totalRevenue += t.price || 70000;
+        stdSeats += t.capacity || 1;
+        totalRevenue += (t.price || 70000) * (t.capacity || 1);
       } else if (t.type === 'seat_wheelchair') {
-        wheelSeats++;
-        totalRevenue += t.price || 50000;
+        wheelSeats += t.capacity || 1;
+        totalRevenue += (t.price || 50000) * (t.capacity || 1);
       } else if (
         t.type === 'path' ||
         t.type === 'path_arrow_r' ||
@@ -653,7 +841,8 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         t.type === 'booth_photo' ||
         t.type === 'booth_kiosk' ||
         t.type === 'cafe_table' ||
-        t.type === 'booth_gacha'
+        t.type === 'booth_gacha' ||
+        (t.isCustom && !t.isSeat)
       ) {
         boothCount++;
       } else if (t.type === 'entrance') {
@@ -663,7 +852,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       }
     });
 
-    const totalSeats = vipSeats + rSeats + sSeats + stdSeats + wheelSeats;
+    const totalSeats = vipSeats + rSeats + sSeats + stdSeats + wheelSeats + customSeats;
     const pathRatio = Math.round((pathCount / (GRID_COLS * GRID_ROWS)) * 100);
 
     return {
@@ -672,6 +861,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       sSeats,
       stdSeats,
       wheelSeats,
+      customSeats,
       totalSeats,
       totalRevenue,
       pathCount,
@@ -686,37 +876,145 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
   const paintTile = (x: number, y: number) => {
     if (activeTool === 'inspect') {
       const target = tileMap.get(`${x},${y}`);
-      if (target) setSelectedTileId(target.id);
+      if (target) {
+        setSelectedTileId(target.parentOriginId || target.id);
+      }
       return;
     }
 
+    // Placing a Multi-tile Custom Block
+    if (activeTool === 'custom' && activeCustomBlockId) {
+      const def = customBlocks.find((b) => b.id === activeCustomBlockId);
+      if (!def) return;
+
+      const w = def.width || 1;
+      const h = def.height || 1;
+
+      // Check bounds
+      if (x + w > GRID_COLS || y + h > GRID_ROWS) {
+        if (onShowToast) onShowToast(`⚠️ 블록 크기(${w}×${h})가 캔버스 범위를 벗어납니다.`);
+        return;
+      }
+
+      setTiles((prev) => {
+        const next = [...prev];
+        const rootId = `t_${x}_${y}`;
+
+        for (let dy = 0; dy < h; dy++) {
+          for (let dx = 0; dx < w; dx++) {
+            const cx = x + dx;
+            const cy = y + dy;
+            const idx = next.findIndex((t) => t.x === cx && t.y === cy);
+            if (idx === -1) continue;
+
+            const isRoot = dx === 0 && dy === 0;
+
+            if (isRoot) {
+              next[idx] = {
+                ...next[idx],
+                type: def.isSeat ? 'seat_vip' : 'booth_merch',
+                isCustom: true,
+                customDefId: def.id,
+                label: def.name,
+                width: w,
+                height: h,
+                isOrigin: true,
+                parentOriginId: undefined,
+                emoji: def.emoji,
+                customBg: def.bgColor,
+                customBorder: def.borderColor,
+                customColor: def.textColor,
+                isSeat: def.isSeat,
+                seatGrade: def.seatGrade,
+                price: def.price,
+                capacity: def.capacity,
+                note: def.description,
+              };
+            } else {
+              next[idx] = {
+                ...next[idx],
+                type: def.isSeat ? 'seat_vip' : 'booth_merch',
+                isCustom: true,
+                customDefId: def.id,
+                isOrigin: false,
+                parentOriginId: rootId,
+                width: 1,
+                height: 1,
+              };
+            }
+          }
+        }
+        return next;
+      });
+
+      setSelectedTileId(`t_${x}_${y}`);
+      if (onShowToast) onShowToast(`✨ [${def.name}] (${w}×${h}) 블록이 배치되었습니다.`);
+      return;
+    }
+
+    // Placing Standard 1x1 Tiles or Eraser
     setTiles((prev) => {
       const next = [...prev];
       const idx = next.findIndex((t) => t.x === x && t.y === y);
       if (idx === -1) return prev;
 
       const current = next[idx];
-      let newType: SandboxTileType = 'empty';
 
+      // If erasing a multi-tile block, erase all its children
       if (activeTool === 'eraser') {
-        newType = 'empty';
-      } else {
-        newType = activeTool;
+        const originId = current.parentOriginId || (current.isOrigin ? current.id : null);
+        if (originId) {
+          return next.map((t) => {
+            if (t.id === originId || t.parentOriginId === originId) {
+              return {
+                id: t.id,
+                x: t.x,
+                y: t.y,
+                type: 'empty',
+                width: 1,
+                height: 1,
+                isOrigin: true,
+                isCustom: false,
+                label: '',
+                price: undefined,
+                capacity: undefined,
+              };
+            }
+            return t;
+          });
+        }
+
+        next[idx] = {
+          id: current.id,
+          x: current.x,
+          y: current.y,
+          type: 'empty',
+          width: 1,
+          height: 1,
+          isOrigin: true,
+          isCustom: false,
+          label: '',
+        };
+        return next;
       }
 
-      if (current.type === newType) return prev; // Avoid unnecessary re-renders
+      // Standard brush
+      const newType = activeTool as SandboxTileType;
+      if (current.type === newType && !current.isCustom) return prev;
 
-      // Default label/pricing from tool config
       const toolMeta = TOOLS_CONFIG.find((t) => t.type === newType);
-      const updated: SandboxTile = {
+      next[idx] = {
         ...current,
         type: newType,
+        isCustom: false,
+        isOrigin: true,
+        width: 1,
+        height: 1,
+        parentOriginId: undefined,
         label: toolMeta?.label || '',
         price: toolMeta?.defaultPrice,
         capacity: toolMeta?.defaultCapacity,
       };
-
-      next[idx] = updated;
       return next;
     });
   };
@@ -728,13 +1026,9 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
   };
 
   const handleMouseEnter = (x: number, y: number) => {
-    if (isMouseDown) {
+    if (isMouseDown && activeTool !== 'custom') {
       paintTile(x, y);
     }
-  };
-
-  const handleMouseUp = () => {
-    setIsMouseDown(false);
   };
 
   useEffect(() => {
@@ -751,6 +1045,73 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     );
   };
 
+  // Resize a block directly from the inspector
+  const handleResizeSelectedTile = (newW: number, newH: number) => {
+    if (!selectedTile) return;
+    const x = selectedTile.x;
+    const y = selectedTile.y;
+
+    if (x + newW > GRID_COLS || y + newH > GRID_ROWS) {
+      if (onShowToast) onShowToast(`⚠️ 변경할 크기(${newW}×${newH})가 캔버스 범위를 벗어납니다.`);
+      return;
+    }
+
+    setTiles((prev) => {
+      // 1. Clear old child cells of this block
+      const oldRootId = selectedTile.id;
+      let next = prev.map((t) => {
+        if (t.parentOriginId === oldRootId) {
+          return {
+            id: t.id,
+            x: t.x,
+            y: t.y,
+            type: 'empty' as SandboxTileType,
+            width: 1,
+            height: 1,
+            isOrigin: true,
+            isCustom: false,
+            label: '',
+          };
+        }
+        return t;
+      });
+
+      // 2. Re-assign new width & height
+      for (let dy = 0; dy < newH; dy++) {
+        for (let dx = 0; dx < newW; dx++) {
+          const cx = x + dx;
+          const cy = y + dy;
+          const idx = next.findIndex((t) => t.x === cx && t.y === cy);
+          if (idx === -1) continue;
+
+          if (dx === 0 && dy === 0) {
+            next[idx] = {
+              ...selectedTile,
+              width: newW,
+              height: newH,
+              isOrigin: true,
+              parentOriginId: undefined,
+            };
+          } else {
+            next[idx] = {
+              ...next[idx],
+              type: selectedTile.type,
+              isCustom: selectedTile.isCustom,
+              customDefId: selectedTile.customDefId,
+              isOrigin: false,
+              parentOriginId: oldRootId,
+              width: 1,
+              height: 1,
+            };
+          }
+        }
+      }
+      return next;
+    });
+
+    if (onShowToast) onShowToast(`📐 블록 크기가 ${newW}×${newH}칸으로 변경되었습니다.`);
+  };
+
   // =========================================================================
   // BFS PATHFINDING FOR VISITOR SIMULATION
   // =========================================================================
@@ -760,7 +1121,9 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
 
     if (!startTile || !endTile) return [];
 
-    const isWalkable = (type: SandboxTileType) => {
+    const isWalkable = (t: SandboxTile) => {
+      // Multi-tile custom blocks or walls block movement
+      if (t.type === 'wall' || (t.isCustom && !t.isSeat)) return false;
       return [
         'path',
         'path_arrow_r',
@@ -770,7 +1133,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         'queue',
         'entrance',
         'exit',
-      ].includes(type);
+      ].includes(t.type);
     };
 
     const queue: { x: number; y: number; path: { x: number; y: number }[] }[] = [
@@ -799,7 +1162,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
 
         if (nx >= 0 && nx < GRID_COLS && ny >= 0 && ny < GRID_ROWS && !visited.has(key)) {
           const neighbor = tileMap.get(key);
-          if (neighbor && isWalkable(neighbor.type)) {
+          if (neighbor && isWalkable(neighbor)) {
             visited.add(key);
             queue.push({
               x: nx,
@@ -856,7 +1219,6 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         setSimStepIndex(step);
         step++;
       } else {
-        // Loop back to start
         step = 0;
         setSimVisitorPos(calculatedPath[0]);
         setSimStepIndex(0);
@@ -889,6 +1251,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       venue: venueName,
       cols: GRID_COLS,
       rows: GRID_ROWS,
+      customBlocks,
       stats,
       tiles: tiles.filter((t) => t.type !== 'empty'),
     };
@@ -898,147 +1261,230 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     if (onShowToast) onShowToast('📋 공간 배치 데이터가 JSON으로 클립보드에 복사되었습니다.');
   };
 
+  // Color theme definitions for Custom Block modal
+  const COLOR_THEMES = [
+    { id: 'gold', name: '골드 앰버', bg: 'bg-amber-400', border: 'border-amber-600', text: 'text-amber-950' },
+    { id: 'purple', name: '로열 퍼플', bg: 'bg-purple-500', border: 'border-purple-700', text: 'text-white' },
+    { id: 'emerald', name: '에메랄드', bg: 'bg-emerald-400', border: 'border-emerald-700', text: 'text-emerald-950' },
+    { id: 'rose', name: '로즈 핑크', bg: 'bg-rose-400', border: 'border-rose-600', text: 'text-white' },
+    { id: 'blue', name: '딥 블루', bg: 'bg-blue-500', border: 'border-blue-700', text: 'text-white' },
+    { id: 'dark', name: '모던 다크', bg: 'bg-stone-900', border: 'border-amber-400', text: 'text-amber-300' },
+  ];
+
+  // Create new Custom Block handler
+  const handleCreateCustomBlock = () => {
+    if (!modalName.trim()) {
+      if (onShowToast) onShowToast('⚠️ 커스텀 블록 이름을 입력해주세요.');
+      return;
+    }
+
+    const theme = COLOR_THEMES.find((c) => c.id === modalColorTheme) || COLOR_THEMES[0];
+    const isSeat = modalCategory === 'seat';
+
+    const newDef: CustomBlockDefinition = {
+      id: `cb-${Date.now()}`,
+      name: modalName.trim(),
+      category: modalCategory,
+      width: modalWidth,
+      height: modalHeight,
+      emoji: modalEmoji,
+      bgColor: theme.bg,
+      borderColor: theme.border,
+      textColor: theme.text,
+      price: isSeat ? modalPrice : undefined,
+      capacity: modalCapacity,
+      isSeat,
+      seatGrade: isSeat ? modalSeatGrade : undefined,
+      description: modalDesc.trim() || undefined,
+    };
+
+    setCustomBlocks((prev) => [newDef, ...prev]);
+    setActiveTool('custom');
+    setActiveCustomBlockId(newDef.id);
+    setIsCustomModalOpen(false);
+
+    // Reset modal state
+    setModalName('');
+    setModalDesc('');
+
+    if (onShowToast) {
+      onShowToast(`🎉 새로운 커스텀 블록 [${newDef.name}] (${newDef.width}×${newDef.height})이 생성되었습니다! 캔버스에 찍어보세요.`);
+    }
+  };
+
   // Render tile visuals
   const renderTileVisual = (tile: SandboxTile) => {
-    const isSelected = selectedTileId === tile.id;
+    // If this is a child cell covered by a multi-tile block, don't render an independent element
+    if (tile.isOrigin === false) {
+      return null;
+    }
+
+    const isSelected = selectedTileId === tile.id || (selectedTile && selectedTile.id === tile.id);
     const isVisitorHere = simVisitorPos?.x === tile.x && simVisitorPos?.y === tile.y;
+
+    const w = tile.width || 1;
+    const h = tile.height || 1;
 
     let baseBg = 'bg-stone-50 border-stone-200';
     let content: React.ReactNode = null;
 
-    switch (tile.type) {
-      case 'empty':
-        baseBg = 'bg-stone-50/70 border-dashed border-stone-200 hover:bg-stone-100/90';
-        break;
+    // CUSTOM BLOCK RENDERING (Multi-tile & Custom Styled)
+    if (tile.isCustom) {
+      baseBg = `${tile.customBg || 'bg-amber-400'} ${tile.customBorder || 'border-amber-600'} ${tile.customColor || 'text-stone-950'} border-2 shadow-sm`;
 
-      case 'entrance':
-        baseBg = 'bg-emerald-500 text-white border-emerald-700 shadow-sm animate-pulse';
-        content = (
-          <div className="flex flex-col items-center justify-center text-[9px] font-black leading-none">
-            <DoorOpen className="w-3.5 h-3.5 mb-0.5" />
-            <span>IN</span>
+      content = (
+        <div className="flex flex-col items-center justify-center text-center p-1 leading-tight h-full w-full">
+          <div className="flex items-center gap-1">
+            <span className="text-base sm:text-lg">{tile.emoji || '🪑'}</span>
+            <span className="text-[9px] sm:text-[10px] font-black line-clamp-1">{tile.label}</span>
           </div>
-        );
-        break;
 
-      case 'exit':
-        baseBg = 'bg-red-500 text-white border-red-700 shadow-sm';
-        content = (
-          <div className="flex flex-col items-center justify-center text-[9px] font-black leading-none">
-            <LogOut className="w-3.5 h-3.5 mb-0.5" />
-            <span>OUT</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[8px] font-bold px-1 py-0.2 bg-black/20 rounded-xs font-mono">
+              {w}×{h}
+            </span>
+            {tile.isSeat ? (
+              <span className="text-[8px] font-black font-mono">
+                ₩{((tile.price || 0) / 10000).toFixed(0)}만
+              </span>
+            ) : (
+              <span className="text-[8px] font-bold">{tile.capacity || 1}명</span>
+            )}
           </div>
-        );
-        break;
+        </div>
+      );
+    } else {
+      // STANDARD TILE RENDERING
+      switch (tile.type) {
+        case 'empty':
+          baseBg = 'bg-stone-50/70 border-dashed border-stone-200 hover:bg-stone-100/90';
+          break;
 
-      case 'path':
-        baseBg = 'bg-stone-300 border-stone-400 text-stone-600 hover:bg-stone-300';
-        content = <Footprints className="w-3 h-3 opacity-60" />;
-        break;
+        case 'entrance':
+          baseBg = 'bg-emerald-500 text-white border-emerald-700 shadow-sm animate-pulse';
+          content = (
+            <div className="flex flex-col items-center justify-center text-[9px] font-black leading-none">
+              <DoorOpen className="w-3.5 h-3.5 mb-0.5" />
+              <span>IN</span>
+            </div>
+          );
+          break;
 
-      case 'path_arrow_r':
-        baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
-        content = <ArrowRight className="w-3.5 h-3.5" />;
-        break;
+        case 'exit':
+          baseBg = 'bg-red-500 text-white border-red-700 shadow-sm';
+          content = (
+            <div className="flex flex-col items-center justify-center text-[9px] font-black leading-none">
+              <LogOut className="w-3.5 h-3.5 mb-0.5" />
+              <span>OUT</span>
+            </div>
+          );
+          break;
 
-      case 'path_arrow_d':
-        baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
-        content = <ArrowDown className="w-3.5 h-3.5" />;
-        break;
+        case 'path':
+          baseBg = 'bg-stone-300 border-stone-400 text-stone-600 hover:bg-stone-300';
+          content = <Footprints className="w-3 h-3 opacity-60" />;
+          break;
 
-      case 'path_arrow_l':
-        baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
-        content = <ArrowLeft className="w-3.5 h-3.5" />;
-        break;
+        case 'path_arrow_r':
+          baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
+          content = <ArrowRight className="w-3.5 h-3.5" />;
+          break;
 
-      case 'path_arrow_u':
-        baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
-        content = <ArrowUp className="w-3.5 h-3.5" />;
-        break;
+        case 'path_arrow_d':
+          baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
+          content = <ArrowDown className="w-3.5 h-3.5" />;
+          break;
 
-      case 'queue':
-        baseBg = 'bg-orange-300 border-orange-500 text-orange-950 font-mono text-[9px] font-bold';
-        content = <div className="text-[8px] font-black tracking-tighter">대기선</div>;
-        break;
+        case 'path_arrow_l':
+          baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
+          content = <ArrowLeft className="w-3.5 h-3.5" />;
+          break;
 
-      case 'wall':
-        baseBg = 'bg-stone-900 border-black text-stone-500 shadow-inner';
-        content = <div className="w-full h-full bg-stone-900" />;
-        break;
+        case 'path_arrow_u':
+          baseBg = 'bg-amber-200 border-amber-400 text-amber-900';
+          content = <ArrowUp className="w-3.5 h-3.5" />;
+          break;
 
-      case 'seat_vip':
-        baseBg = 'bg-amber-400 border-amber-600 text-amber-950 shadow-sm';
-        content = (
-          <div className="flex flex-col items-center justify-center leading-none">
-            <span className="text-[8px] font-black">VIP</span>
-          </div>
-        );
-        break;
+        case 'queue':
+          baseBg = 'bg-orange-300 border-orange-500 text-orange-950 font-mono text-[9px] font-bold';
+          content = <div className="text-[8px] font-black tracking-tighter">대기선</div>;
+          break;
 
-      case 'seat_r':
-        baseBg = 'bg-purple-300 border-purple-500 text-purple-950';
-        content = <span className="text-[8px] font-black">R</span>;
-        break;
+        case 'wall':
+          baseBg = 'bg-stone-900 border-black text-stone-500 shadow-inner';
+          content = <div className="w-full h-full bg-stone-900" />;
+          break;
 
-      case 'seat_s':
-        baseBg = 'bg-emerald-300 border-emerald-500 text-emerald-950';
-        content = <span className="text-[8px] font-black">S</span>;
-        break;
+        case 'seat_vip':
+          baseBg = 'bg-amber-400 border-amber-600 text-amber-950 shadow-sm';
+          content = <span className="text-[8px] font-black">VIP</span>;
+          break;
 
-      case 'seat_std':
-        baseBg = 'bg-blue-200 border-blue-400 text-blue-950';
-        content = <span className="text-[8px] font-bold">일반</span>;
-        break;
+        case 'seat_r':
+          baseBg = 'bg-purple-300 border-purple-500 text-purple-950';
+          content = <span className="text-[8px] font-black">R</span>;
+          break;
 
-      case 'seat_wheelchair':
-        baseBg = 'bg-cyan-200 border-cyan-500 text-cyan-950';
-        content = <span className="text-[9px]">♿</span>;
-        break;
+        case 'seat_s':
+          baseBg = 'bg-emerald-300 border-emerald-500 text-emerald-950';
+          content = <span className="text-[8px] font-black">S</span>;
+          break;
 
-      case 'booth_merch':
-        baseBg = 'bg-rose-400 border-rose-600 text-white shadow-sm';
-        content = (
-          <div className="flex flex-col items-center justify-center leading-none">
-            <Store className="w-3 h-3" />
-            <span className="text-[7px] font-black mt-0.5">MD</span>
-          </div>
-        );
-        break;
+        case 'seat_std':
+          baseBg = 'bg-blue-200 border-blue-400 text-blue-950';
+          content = <span className="text-[8px] font-bold">일반</span>;
+          break;
 
-      case 'booth_photo':
-        baseBg = 'bg-yellow-400 border-yellow-600 text-stone-950 shadow-sm';
-        content = (
-          <div className="flex flex-col items-center justify-center leading-none">
-            <Camera className="w-3 h-3" />
-            <span className="text-[7px] font-black mt-0.5">포토</span>
-          </div>
-        );
-        break;
+        case 'seat_wheelchair':
+          baseBg = 'bg-cyan-200 border-cyan-500 text-cyan-950';
+          content = <span className="text-[9px]">♿</span>;
+          break;
 
-      case 'booth_kiosk':
-        baseBg = 'bg-indigo-300 border-indigo-600 text-indigo-950';
-        content = <span className="text-[8px] font-black">발권</span>;
-        break;
+        case 'booth_merch':
+          baseBg = 'bg-rose-400 border-rose-600 text-white shadow-sm';
+          content = (
+            <div className="flex flex-col items-center justify-center leading-none">
+              <Store className="w-3 h-3" />
+              <span className="text-[7px] font-black mt-0.5">MD</span>
+            </div>
+          );
+          break;
 
-      case 'cafe_table':
-        baseBg = 'bg-amber-300 border-amber-600 text-amber-950 rounded-full scale-90';
-        content = <Coffee className="w-3 h-3" />;
-        break;
+        case 'booth_photo':
+          baseBg = 'bg-yellow-400 border-yellow-600 text-stone-950 shadow-sm';
+          content = (
+            <div className="flex flex-col items-center justify-center leading-none">
+              <Camera className="w-3 h-3" />
+              <span className="text-[7px] font-black mt-0.5">포토</span>
+            </div>
+          );
+          break;
 
-      case 'stage':
-        baseBg = 'bg-purple-950 border-amber-400 text-amber-300 shadow-md';
-        content = <Mic2 className="w-3 h-3 text-amber-400" />;
-        break;
+        case 'booth_kiosk':
+          baseBg = 'bg-indigo-300 border-indigo-600 text-indigo-950';
+          content = <span className="text-[8px] font-black">발권</span>;
+          break;
 
-      case 'booth_gacha':
-        baseBg = 'bg-pink-300 border-pink-500 text-pink-950';
-        content = <Gift className="w-3 h-3" />;
-        break;
+        case 'cafe_table':
+          baseBg = 'bg-amber-300 border-amber-600 text-amber-950 rounded-full scale-90';
+          content = <Coffee className="w-3 h-3" />;
+          break;
 
-      case 'restroom':
-        baseBg = 'bg-slate-300 border-slate-500 text-slate-800';
-        content = <span className="text-[8px] font-bold">WC</span>;
-        break;
+        case 'stage':
+          baseBg = 'bg-purple-950 border-amber-400 text-amber-300 shadow-md';
+          content = <Mic2 className="w-3 h-3 text-amber-400" />;
+          break;
+
+        case 'booth_gacha':
+          baseBg = 'bg-pink-300 border-pink-500 text-pink-950';
+          content = <Gift className="w-3 h-3" />;
+          break;
+
+        case 'restroom':
+          baseBg = 'bg-slate-300 border-slate-500 text-slate-800';
+          content = <span className="text-[8px] font-bold">WC</span>;
+          break;
+      }
     }
 
     return (
@@ -1046,10 +1492,16 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         key={tile.id}
         onMouseDown={() => handleMouseDown(tile.x, tile.y)}
         onMouseEnter={() => handleMouseEnter(tile.x, tile.y)}
-        className={`w-full aspect-square border transition-all flex items-center justify-center select-none cursor-pointer relative ${baseBg} ${
-          isSelected ? 'ring-3 ring-amber-500 z-10 scale-105 shadow-md' : ''
+        style={{
+          gridColumnStart: tile.x + 1,
+          gridColumnEnd: tile.x + 1 + w,
+          gridRowStart: tile.y + 1,
+          gridRowEnd: tile.y + 1 + h,
+        }}
+        className={`border transition-all flex items-center justify-center select-none cursor-pointer relative rounded-md overflow-hidden ${baseBg} ${
+          isSelected ? 'ring-3 ring-amber-500 z-10 scale-[1.02] shadow-lg' : ''
         }`}
-        title={`[${tile.x}, ${tile.y}] ${tile.label || tile.type}`}
+        title={`[${tile.x}, ${tile.y}] ${tile.label || tile.type} (${w}×${h})`}
       >
         {content}
 
@@ -1085,14 +1537,24 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
                 </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
-                원하는 자리에 직접 마우스로 드래그하여 <span className="font-bold text-stone-800">좌석, 굿즈 부스, 포토존, 보행로 길(통로), 대기열 라인</span>을 100% 마음대로 설계합니다.
+                <span className="font-bold text-purple-700">좌석 블록 커스텀</span>, <span className="font-bold text-amber-800">블록 크기(W×H) 설정</span>, 이름과 가격을 직접 지정하고 마우스로 길과 부스를 마음대로 설계합니다.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Action Controls: Presets, Simulation & Export */}
+        {/* Action Controls: New Custom Block, Presets, Simulation & Export */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Button to Open Custom Block Maker Modal */}
+          <button
+            type="button"
+            onClick={() => setIsCustomModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 font-black text-xs rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#f59e0b] cursor-pointer transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4 text-amber-400" />
+            <span>새 커스텀 블록 만들기</span>
+          </button>
+
           {/* Quick Presets */}
           <div className="flex items-center bg-stone-100 border border-stone-300 rounded-xl p-1 gap-1 text-xs">
             <span className="text-[10px] font-bold text-stone-400 px-2 font-mono">템플릿:</span>
@@ -1137,7 +1599,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             }`}
           >
             {isSimulating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            <span>{isSimulating ? '시뮬레이션 중지' : '🚶 관람객 동선 테스트'}</span>
+            <span>{isSimulating ? '시뮬레이션 중지' : '🚶 동선 테스트'}</span>
           </button>
 
           {/* Save / Export JSON */}
@@ -1147,7 +1609,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-800 text-xs font-bold rounded-xl border border-stone-300 cursor-pointer"
           >
             {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>JSON 복사</span>
+            <span>JSON</span>
           </button>
 
           <button
@@ -1172,7 +1634,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             {stats.totalSeats}석
           </div>
           <div className="text-[9px] text-amber-700 font-mono font-bold">
-            VIP {stats.vipSeats} / R {stats.rSeats} / S {stats.sSeats}
+            커스텀 {stats.customSeats}석 / VIP {stats.vipSeats} / R {stats.rSeats}
           </div>
         </div>
 
@@ -1228,8 +1690,10 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       {/* Main Studio Body: Palette Toolbar (Left) + Interactive Grid Canvas (Center) + Inspector (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* LEFT: Tools & Block Palette (col-span-3) */}
-        <div className="lg:col-span-3 bg-stone-50 border-2 border-stone-900 rounded-2xl p-3 sm:p-4 space-y-4 shadow-[3px_3px_0px_#1c1917]">
+        {/* LEFT: Tools & Custom Block Palette (col-span-3) */}
+        <div className="lg:col-span-3 bg-stone-50 border-2 border-stone-900 rounded-2xl p-3 sm:p-4 space-y-4 shadow-[3px_3px_0px_#1c1917] max-h-[780px] overflow-y-auto">
+          
+          {/* Header */}
           <div className="flex items-center justify-between border-b border-stone-200 pb-2">
             <span className="text-xs font-black text-stone-900 flex items-center gap-1">
               <Sliders className="w-3.5 h-3.5 text-amber-500" />
@@ -1266,10 +1730,62 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             </div>
           </div>
 
-          {/* Group 2: Paths & Flow */}
+          {/* Group 2: ⭐ User-Created Custom Blocks (크기 & 좌석 자유 설정) */}
+          <div className="p-2.5 bg-amber-50/70 border-2 border-amber-300 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-amber-950 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>내가 만든 커스텀 블록</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsCustomModalOpen(true)}
+                className="text-[10px] font-bold text-purple-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>새로 만들기</span>
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              {customBlocks.map((block) => {
+                const isSelected = activeTool === 'custom' && activeCustomBlockId === block.id;
+                return (
+                  <button
+                    key={block.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTool('custom');
+                      setActiveCustomBlockId(block.id);
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer text-left ${
+                      isSelected
+                        ? 'bg-stone-900 text-amber-300 border-stone-900 shadow-[2px_2px_0px_#f59e0b]'
+                        : 'bg-white border-stone-200 text-stone-800 hover:border-amber-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="text-base">{block.emoji}</span>
+                      <div className="truncate">
+                        <div className="text-[11px] font-black truncate">{block.name}</div>
+                        <div className="text-[9px] opacity-75 font-mono">
+                          {block.isSeat ? `₩${(block.price || 0).toLocaleString()}` : `${block.capacity}명 수용`}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-700 shrink-0 border border-stone-300">
+                      {block.width}×{block.height}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Group 3: Paths & Flow */}
           <div>
             <div className="text-[10px] font-bold text-stone-400 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
-              <span>[2] 길 &amp; 관람 동선</span>
+              <span>[3] 길 &amp; 관람 동선</span>
               <span className="text-amber-600 font-bold">인도/통로</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -1295,11 +1811,11 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             </div>
           </div>
 
-          {/* Group 3: Seats */}
+          {/* Group 4: Standard Seats */}
           <div>
             <div className="text-[10px] font-bold text-stone-400 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
-              <span>[3] 객석 &amp; 좌석</span>
-              <span className="text-purple-600 font-bold">VIP/R/S</span>
+              <span>[4] 기본 객석</span>
+              <span className="text-purple-600 font-bold">1×1 규격</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {TOOLS_CONFIG.filter((t) => t.category === 'seat').map((t) => {
@@ -1324,10 +1840,10 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             </div>
           </div>
 
-          {/* Group 4: Booths & Facilities */}
+          {/* Group 5: Booths & Facilities */}
           <div>
             <div className="text-[10px] font-bold text-stone-400 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
-              <span>[4] 팝업 부스 &amp; 시설</span>
+              <span>[5] 기본 팝업 부스</span>
               <span className="text-rose-600 font-bold">MD/포토존</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -1362,7 +1878,12 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
               <span>캔버스 크기: 20열 × 12행 (총 240타일)</span>
             </span>
             <span className="text-stone-400 font-mono">
-              선택된 브러시: <strong className="text-stone-900 font-sans">{activeTool}</strong>
+              선택 브러시:{' '}
+              <strong className="text-stone-900 font-sans">
+                {activeTool === 'custom'
+                  ? `${customBlocks.find((b) => b.id === activeCustomBlockId)?.name || '커스텀'} (${customBlocks.find((b) => b.id === activeCustomBlockId)?.width}×${customBlocks.find((b) => b.id === activeCustomBlockId)?.height})`
+                  : activeTool}
+              </strong>
             </span>
           </div>
 
@@ -1375,6 +1896,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
               className="grid gap-[2px] bg-stone-800 p-2 rounded-2xl min-w-[580px]"
               style={{
                 gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${GRID_ROWS}, minmax(36px, 1fr))`,
               }}
             >
               {tiles.map((t) => renderTileVisual(t))}
@@ -1382,59 +1904,158 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-stone-500 px-2 pt-1">
-            <span>💡 <strong>Tip:</strong> 마우스 버튼을 누른 채로 드래그하면 그림판처럼 연속으로 길이 그려집니다.</span>
+            <span>💡 <strong>Tip:</strong> 마우스 드래그로 길을 그리고, 커스텀 블록을 클릭하여 원하는 자리에 2×2, 3×2 크기로 찍어보세요.</span>
             <span className="text-amber-600 font-bold">1타일 = 약 1.5m 규격</span>
           </div>
         </div>
 
         {/* RIGHT: Tile Inspector & Properties (col-span-3) */}
         <div className="lg:col-span-3 bg-stone-50 border-2 border-stone-900 rounded-2xl p-4 space-y-4 shadow-[3px_3px_0px_#1c1917]">
-          <div className="flex items-center gap-1.5 border-b border-stone-200 pb-2">
-            <Eye className="w-4 h-4 text-purple-600" />
-            <h4 className="text-xs font-black text-stone-900">타일 속성 인스펙터</h4>
+          <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+            <div className="flex items-center gap-1.5">
+              <Eye className="w-4 h-4 text-purple-600" />
+              <h4 className="text-xs font-black text-stone-900">블록 속성 인스펙터</h4>
+            </div>
+            {selectedTile && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 font-bold">
+                {selectedTile.width || 1}×{selectedTile.height || 1}칸
+              </span>
+            )}
           </div>
 
           {selectedTile ? (
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3.5 text-xs">
+              
+              {/* Coords & Type */}
               <div className="bg-white border border-stone-200 p-2.5 rounded-xl space-y-1">
                 <div className="text-[10px] text-stone-400 font-mono">좌표 / ID</div>
-                <div className="font-bold text-stone-900 font-mono">
-                  [{selectedTile.x}, {selectedTile.y}] ({selectedTile.id})
+                <div className="font-bold text-stone-900 font-mono flex items-center justify-between">
+                  <span>[{selectedTile.x}, {selectedTile.y}] ({selectedTile.id})</span>
+                  {selectedTile.emoji && <span className="text-base">{selectedTile.emoji}</span>}
                 </div>
                 <div className="text-[10px] text-purple-600 font-bold uppercase mt-1">
-                  타입: {selectedTile.type}
+                  타입: {selectedTile.isCustom ? '커스텀 블록' : selectedTile.type}
                 </div>
               </div>
 
+              {/* 1. Name Editor */}
               <div>
-                <label className="block text-[10px] font-bold text-stone-600 mb-1">
-                  블록 표시 이름 / 번호
+                <label className="block text-[10px] font-bold text-stone-600 mb-1 flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-amber-500" />
+                  <span>블록 표시 이름 (Name)</span>
                 </label>
                 <input
                   type="text"
                   value={selectedTile.label || ''}
                   onChange={(e) => handleUpdateSelectedTile({ label: e.target.value })}
-                  placeholder="예: VIP-A1, 포토존, MD매대"
-                  className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold text-stone-900 focus:outline-hidden focus:border-amber-400"
+                  placeholder="예: VVIP 2인 소파석, 포토월, MD매대"
+                  className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-black text-stone-900 focus:outline-hidden focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
-              {selectedTile.type.startsWith('seat_') && (
-                <div>
-                  <label className="block text-[10px] font-bold text-stone-600 mb-1">
-                    티켓 판매 가격 (₩)
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedTile.price || 0}
-                    onChange={(e) =>
-                      handleUpdateSelectedTile({ price: parseInt(e.target.value) || 0 })
-                    }
-                    className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold font-mono text-stone-900 focus:outline-hidden focus:border-amber-400"
-                  />
-                </div>
-              )}
+              {/* 2. Block Dimensions (Width x Height) */}
+              <div>
+                <label className="block text-[10px] font-bold text-stone-600 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Box className="w-3 h-3 text-purple-600" />
+                    <span>블록 크기 조절 (가로×세로 칸)</span>
+                  </span>
+                  <span className="font-mono text-purple-700 font-bold">
+                    현재: {selectedTile.width || 1}W × {selectedTile.height || 1}H
+                  </span>
+                </label>
 
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-stone-400 w-10">가로(W):</span>
+                    {[1, 2, 3, 4].map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => handleResizeSelectedTile(w, selectedTile.height || 1)}
+                        className={`flex-1 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                          (selectedTile.width || 1) === w
+                            ? 'bg-purple-900 text-amber-300 border-purple-900 font-black'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {w}칸
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-stone-400 w-10">세로(H):</span>
+                    {[1, 2, 3, 4].map((h) => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => handleResizeSelectedTile(selectedTile.width || 1, h)}
+                        className={`flex-1 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                          (selectedTile.height || 1) === h
+                            ? 'bg-purple-900 text-amber-300 border-purple-900 font-black'
+                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {h}칸
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Seat Settings */}
+              <div className="p-2.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-amber-950 flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedTile.isSeat}
+                      onChange={(e) => handleUpdateSelectedTile({ isSeat: e.target.checked })}
+                      className="rounded-sm text-amber-500"
+                    />
+                    <span>유료 관람 좌석으로 운영</span>
+                  </label>
+                  {selectedTile.isSeat && (
+                    <span className="text-[9px] px-1.5 py-0.2 bg-amber-200 text-amber-900 font-bold rounded-sm">
+                      좌석 활성
+                    </span>
+                  )}
+                </div>
+
+                {selectedTile.isSeat && (
+                  <div className="space-y-2 pt-1 border-t border-amber-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-stone-600 mb-0.5">
+                        좌석 등급명
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedTile.seatGrade || ''}
+                        onChange={(e) => handleUpdateSelectedTile({ seatGrade: e.target.value })}
+                        placeholder="예: VVIP, 커플석, 발코니석"
+                        className="w-full px-2 py-1 bg-white border border-stone-300 rounded-md text-xs font-bold text-stone-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-stone-600 mb-0.5">
+                        티켓 판매 가격 (₩)
+                      </label>
+                      <input
+                        type="number"
+                        value={selectedTile.price || 0}
+                        onChange={(e) =>
+                          handleUpdateSelectedTile({ price: parseInt(e.target.value) || 0 })
+                        }
+                        className="w-full px-2 py-1 bg-white border border-stone-300 rounded-md text-xs font-black font-mono text-stone-900"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Capacity */}
               <div>
                 <label className="block text-[10px] font-bold text-stone-600 mb-1">
                   동시 체류 / 수용 인원 (명)
@@ -1449,6 +2070,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
                 />
               </div>
 
+              {/* 5. Operation Notes */}
               <div>
                 <label className="block text-[10px] font-bold text-stone-600 mb-1">
                   현장 운영 메모 / 지침
@@ -1456,20 +2078,27 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
                 <textarea
                   value={selectedTile.note || ''}
                   onChange={(e) => handleUpdateSelectedTile({ note: e.target.value })}
-                  placeholder="예: 안전 요원 배치 필수, 전력 220V 16A 소켓 지원"
+                  placeholder="예: 샴페인 서빙, 안전 바 설치, 220V 콘센트 지원"
                   rows={2}
                   className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs text-stone-900 focus:outline-hidden focus:border-amber-400"
                 />
               </div>
 
+              {/* Action Buttons */}
               <div className="pt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    handleUpdateSelectedTile({ type: 'empty', label: '', price: undefined });
+                    handleResizeSelectedTile(1, 1);
+                    handleUpdateSelectedTile({
+                      type: 'empty',
+                      label: '',
+                      price: undefined,
+                      isCustom: false,
+                    });
                     if (onShowToast) onShowToast('선택한 블록이 지워졌습니다.');
                   }}
-                  className="w-full py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"
+                  className="w-full py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>이 블록 비우기</span>
@@ -1480,7 +2109,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             <div className="p-6 text-center text-stone-400 space-y-2">
               <Eye className="w-6 h-6 mx-auto opacity-40" />
               <p className="text-xs">
-                캔버스 위의 블록을 클릭하면 이름, 가격, 수용 인원을 여기서 수정할 수 있습니다.
+                캔버스 위의 블록을 클릭하면 <strong className="text-stone-700">이름, 크기(W×H), 좌석 가격, 정원</strong>을 여기서 자유롭게 변경할 수 있습니다.
               </p>
             </div>
           )}
@@ -1490,7 +2119,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             <div className="font-bold text-stone-700">색상 범례 (Legend)</div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-stone-300 rounded-xs" /> 보행로(길)
-              <span className="w-2.5 h-2.5 bg-amber-400 rounded-xs" /> VIP 좌석
+              <span className="w-2.5 h-2.5 bg-amber-400 rounded-xs" /> 커스텀/VIP
               <span className="w-2.5 h-2.5 bg-rose-400 rounded-xs" /> MD 부스
             </div>
             <div className="flex items-center gap-2">
@@ -1502,6 +2131,298 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         </div>
 
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: 새 커스텀 블록 직접 만들기 (이름, 크기, 좌석, 색상 완벽 지원) */}
+      {/* ========================================================================= */}
+      {isCustomModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white border-3 border-stone-900 rounded-3xl max-w-lg w-full p-6 shadow-[8px_8px_0px_#1c1917] space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b-2 border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-400 border-2 border-stone-900 rounded-xl">
+                  <Sparkles className="w-5 h-5 text-stone-950" />
+                </div>
+                <div>
+                  <h3 className="font-black text-stone-950 text-base">
+                    나만의 새 커스텀 블록 만들기
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    블록 이름, 크기(가로×세로), 좌석 여부 및 가격을 마음대로 정합니다.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomModalOpen(false)}
+                className="p-1.5 hover:bg-stone-100 rounded-xl text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <div className="space-y-4 text-xs">
+              
+              {/* 1. Block Name */}
+              <div>
+                <label className="block text-xs font-black text-stone-800 mb-1">
+                  블록 이름 *
+                </label>
+                <input
+                  type="text"
+                  value={modalName}
+                  onChange={(e) => setModalName(e.target.value)}
+                  placeholder="예: VVIP 2인 소파석, 초대형 네온 포토월, 메인 MD 샵"
+                  className="w-full px-3 py-2 bg-stone-50 border-2 border-stone-300 focus:border-stone-900 rounded-xl text-sm font-bold text-stone-950 focus:outline-hidden"
+                />
+              </div>
+
+              {/* 2. Block Category */}
+              <div>
+                <label className="block text-xs font-black text-stone-800 mb-1.5">
+                  블록 성격 / 분류
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCategory('seat');
+                      setModalEmoji('🛋️');
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold border-2 transition-all cursor-pointer text-center ${
+                      modalCategory === 'seat'
+                        ? 'bg-amber-400 border-stone-900 text-stone-950 shadow-[2px_2px_0px_#1c1917]'
+                        : 'bg-stone-50 border-stone-300 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    🪑 좌석 블록
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCategory('booth');
+                      setModalEmoji('🛍️');
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold border-2 transition-all cursor-pointer text-center ${
+                      modalCategory === 'booth'
+                        ? 'bg-rose-400 border-stone-900 text-white shadow-[2px_2px_0px_#1c1917]'
+                        : 'bg-stone-50 border-stone-300 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    🏪 팝업 부스
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCategory('facility');
+                      setModalEmoji('🎤');
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold border-2 transition-all cursor-pointer text-center ${
+                      modalCategory === 'facility'
+                        ? 'bg-purple-500 border-stone-900 text-white shadow-[2px_2px_0px_#1c1917]'
+                        : 'bg-stone-50 border-stone-300 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    🎤 무대 / 시설
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Block Size (Width x Height) with Live Preview */}
+              <div>
+                <label className="block text-xs font-black text-stone-800 mb-1.5">
+                  블록 크기 설정 (W × H 칸 수)
+                </label>
+
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-stone-500 w-12">가로 너비:</span>
+                      {[1, 2, 3, 4].map((w) => (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => setModalWidth(w)}
+                          className={`flex-1 py-1 rounded-lg text-xs font-black border transition-all cursor-pointer ${
+                            modalWidth === w
+                              ? 'bg-stone-900 text-amber-300 border-stone-900 shadow-xs'
+                              : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {w}칸
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-stone-500 w-12">세로 높이:</span>
+                      {[1, 2, 3, 4].map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => setModalHeight(h)}
+                          className={`flex-1 py-1 rounded-lg text-xs font-black border transition-all cursor-pointer ${
+                            modalHeight === h
+                              ? 'bg-stone-900 text-amber-300 border-stone-900 shadow-xs'
+                              : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          {h}칸
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Live Size Preview Box */}
+                  <div className="p-3 bg-stone-900 rounded-2xl border-2 border-stone-900 flex flex-col items-center justify-center min-h-[90px]">
+                    <div className="text-[9px] text-amber-400 font-mono font-bold mb-1">
+                      실제 캔버스 차지 비율 ({modalWidth}×{modalHeight})
+                    </div>
+                    <div
+                      className="grid gap-1 p-1 bg-stone-800 rounded-xl"
+                      style={{
+                        gridTemplateColumns: `repeat(4, 16px)`,
+                        gridTemplateRows: `repeat(4, 16px)`,
+                      }}
+                    >
+                      {Array.from({ length: 16 }).map((_, idx) => {
+                        const col = idx % 4;
+                        const row = Math.floor(idx / 4);
+                        const isInside = col < modalWidth && row < modalHeight;
+                        return (
+                          <div
+                            key={idx}
+                            className={`w-4 h-4 rounded-xs transition-all ${
+                              isInside ? 'bg-amber-400 border border-amber-600 scale-95' : 'bg-stone-700/40 border border-stone-700/50'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Emoji / Icon Selection */}
+              <div>
+                <label className="block text-xs font-black text-stone-800 mb-1">
+                  대표 아이콘 / 이모지
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-stone-50 border border-stone-200 rounded-xl">
+                  {['🛋️', '👑', '💎', '🎟️', '🎪', '🛍️', '📸', '☕', '🎤', '🎁', '🚀', '⭐', '🍔', '🍿'].map((emo) => (
+                    <button
+                      key={emo}
+                      type="button"
+                      onClick={() => setModalEmoji(emo)}
+                      className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all cursor-pointer ${
+                        modalEmoji === emo
+                          ? 'bg-amber-400 ring-2 ring-stone-900 scale-110 shadow-xs'
+                          : 'hover:bg-stone-200'
+                      }`}
+                    >
+                      {emo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. Color Theme */}
+              <div>
+                <label className="block text-xs font-black text-stone-800 mb-1">
+                  색상 테마
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {COLOR_THEMES.map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setModalColorTheme(theme.id)}
+                      className={`p-2 rounded-xl border-2 text-[10px] font-bold text-center transition-all cursor-pointer ${
+                        theme.bg
+                      } ${theme.border} ${theme.text} ${
+                        modalColorTheme === theme.id ? 'ring-2 ring-stone-900 scale-105 shadow-sm' : 'opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      {theme.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 6. Pricing & Capacity */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
+                {modalCategory === 'seat' ? (
+                  <>
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        좌석 등급명
+                      </label>
+                      <input
+                        type="text"
+                        value={modalSeatGrade}
+                        onChange={(e) => setModalSeatGrade(e.target.value)}
+                        placeholder="예: VVIP, 커플석"
+                        className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        티켓 판매 가격 (₩)
+                      </label>
+                      <input
+                        type="number"
+                        value={modalPrice}
+                        onChange={(e) => setModalPrice(parseInt(e.target.value) || 0)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-black font-mono"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      동시 수용 정원 (명)
+                    </label>
+                    <input
+                      type="number"
+                      value={modalCapacity}
+                      onChange={(e) => setModalCapacity(parseInt(e.target.value) || 1)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-black font-mono"
+                    />
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t-2 border-stone-100">
+              <button
+                type="button"
+                onClick={() => setIsCustomModalOpen(false)}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCreateCustomBlock}
+                className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black rounded-xl text-xs border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:scale-95"
+              >
+                ✨ 이 커스텀 블록 저장 &amp; 캔버스 브러시 선택
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
