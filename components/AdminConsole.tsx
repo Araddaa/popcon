@@ -74,6 +74,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   // Navigation Tabs & Stepper State
   const [mainSection, setMainSection] = useState<'wizard' | 'users' | 'audit'>('wizard');
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [isWideView, setIsWideView] = useState<boolean>(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -508,7 +509,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
       )}
 
       {/* Admin Studio Container Card */}
-      <div className="max-w-7xl mx-auto bg-white border-2 border-stone-900 rounded-3xl shadow-[6px_6px_0px_#1c1917] overflow-hidden">
+      <div className={`mx-auto bg-white border-2 border-stone-900 rounded-3xl shadow-[6px_6px_0px_#1c1917] overflow-hidden transition-all duration-300 ${isWideView ? "max-w-[1720px]" : "max-w-7xl"}`}>
         
         {/* Top Header Bar */}
         <div className="bg-stone-900 text-white px-5 sm:px-8 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-4 border-b-2 border-stone-900">
@@ -542,6 +543,16 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             >
               <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span>KOPIS API 연동 안내</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsWideView(!isWideView)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs sm:text-sm font-bold rounded-xl border border-stone-700 cursor-pointer transition-colors"
+              title={isWideView ? "표준 폭(1280px)으로 축소" : "와이드 뷰(1720px)로 확장"}
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">{isWideView ? "표준 뷰 (1280px)" : "와이드 뷰 (1720px)"}</span>
             </button>
 
             <button
