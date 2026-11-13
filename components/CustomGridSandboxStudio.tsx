@@ -856,6 +856,20 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     if (onShowToast) onShowToast(`↩️ 이전 도안 상태(${previous.cols}×${previous.rows})로 되돌렸습니다.`);
   };
 
+  // 화면 너비에 맞춰 타일 크기 자동 조절
+  const fitToWidth = () => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const avail = el.clientWidth - 48 - 40;
+    const size = Math.floor(avail / gridCols) - 2;
+    setCellSize(Math.max(28, Math.min(64, size)));
+  };
+
+  useEffect(() => {
+    fitToWidth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Directional Blueprint Block Expansion Methods
   const expandColsRight = (count: number = 1) => {
     if (gridCols + count > 50) {
@@ -1646,11 +1660,13 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       content = (
         <div className="flex flex-col items-center justify-center text-center p-1.5 leading-tight h-full w-full">
           <div className="flex items-center gap-1.5">
-            <span className="text-xl sm:text-2xl drop-shadow-xs">{tile.emoji || '🪑'}</span>
-            <span className="text-xs sm:text-sm font-black line-clamp-1 drop-shadow-2xs">{tile.label}</span>
+            <span className={cellSize >= 56 ? "text-2xl" : "text-lg"}>{tile.emoji || '🪑'}</span>
+            {cellSize * w >= 100 && (
+              <span className="text-xs font-black line-clamp-1">{tile.label}</span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 mt-1">
+          {cellSize * h >= 64 && cellSize * w >= 100 && <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-black/25 rounded-md font-mono text-white">
               {w}×{h}
             </span>
@@ -1661,7 +1677,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
             ) : (
               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-white/30 rounded-md">{tile.capacity || 1}명 정원</span>
             )}
-          </div>
+          </div>}
         </div>
       );
     } else {
@@ -1829,36 +1845,36 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
   };
 
   return (
-    <div className="bg-white border-2 border-stone-900 rounded-3xl p-4 sm:p-7 shadow-[6px_6px_0px_#1c1917] space-y-5">
-      
-      {/* ========================================================================= */}
-      {/* 1. TOP HEADER & QUICK ACTION BAR (Spacious & Clean) */}
-      {/* ========================================================================= */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b-2 border-stone-100 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-amber-400 border-2 border-stone-900 rounded-2xl shadow-[2px_2px_0px_#1c1917]">
-              <Grid className="w-6 h-6 text-stone-950" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl sm:text-2xl font-black text-stone-950">
-                  완전 자유 커스텀 샌드박스 스튜디오
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-400">
-                  WIDE EXPANSIVE STUDIO
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-                <span className="font-bold text-purple-700">좌석 블록 커스텀</span>, <span className="font-bold text-amber-800">블록 크기(W×H) 설정</span>, 이름과 가격을 직접 지정하고 넓은 와이드 캔버스에서 편하게 설계하세요.
-              </p>
-            </div>
-          </div>
-        </div>
+    <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
+      {/* ===== TOOLBAR (한 줄) ===== */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-stone-200 bg-stone-50">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className="p-2 rounded-lg text-stone-600 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            title="실행 취소"
+          >
+            <Undo2 className="w-4 h-4" />
+          </button>
 
-        {/* Global Studio Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Blueprint Dimensions & Block Expansion Button */}
+          <div className="w-px h-5 bg-stone-300" />
+
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) handleLoadPreset(e.target.value as any);
+            }}
+            className="h-8 px-2 text-xs font-semibold bg-white border border-stone-300 rounded-lg text-stone-700 cursor-pointer"
+          >
+            <option value="">템플릿 불러오기</option>
+            <option value="popup_loop">팝업 미로</option>
+            <option value="theatre_thrust">소극장 T자</option>
+            <option value="cafe_market">카페 &amp; 마켓</option>
+            <option value="blank">빈 도안</option>
+          </select>
+
           <button
             type="button"
             onClick={() => {
@@ -1866,279 +1882,161 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
               setCustomTargetRows(gridRows);
               setIsDimensionModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:scale-95"
-            title="도안 크기 조절 및 블록 단위 확장"
+            className="h-8 flex items-center gap-1.5 px-2.5 text-xs font-semibold bg-white border border-stone-300 rounded-lg text-stone-700 hover:bg-stone-100 cursor-pointer"
+            title="도안 크기 조절"
           >
-            <Maximize2 className="w-4 h-4 text-stone-950" />
-            <span>도안 규격 & 블럭 증설</span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-stone-950 text-amber-300 rounded-md font-mono">
-              {gridCols}×{gridRows}
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span className="font-mono">{gridCols} × {gridRows}</span>
+          </button>
+
+          <div className="h-8 flex items-center bg-white border border-stone-300 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setCellSize((p) => Math.max(32, p - 8))}
+              className="px-2 h-full text-stone-600 hover:bg-stone-100 rounded-l-lg cursor-pointer"
+              title="축소"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="px-1.5 text-[11px] font-mono text-stone-500 w-10 text-center">
+              {Math.round((cellSize / 52) * 100)}%
             </span>
-          </button>
-
-          {/* Create Custom Block Button */}
-          <button
-            type="button"
-            onClick={() => setIsCustomModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#f59e0b] cursor-pointer transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 text-amber-400" />
-            <span>새 커스텀 블록 만들기</span>
-          </button>
-
-          {/* Undo */}
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-              history.length === 0
-                ? 'opacity-40 cursor-not-allowed bg-stone-100 text-stone-400 border-stone-200'
-                : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300 shadow-2xs cursor-pointer'
-            }`}
-            title="실행 취소 (Ctrl+Z)"
-          >
-            <Undo2 className="w-4 h-4" />
-            <span className="hidden sm:inline">실행 취소</span>
-          </button>
-
-          {/* Preset Templates */}
-          <div className="flex items-center bg-stone-100 border border-stone-300 rounded-xl p-1 gap-1 text-xs">
-            <span className="text-[10px] font-bold text-stone-400 px-1.5 font-mono">템플릿:</span>
             <button
               type="button"
-              onClick={() => handleLoadPreset('popup_loop')}
-              className="px-2.5 py-1 bg-white hover:bg-stone-200 rounded-lg font-bold text-stone-700 shadow-2xs cursor-pointer"
+              onClick={() => setCellSize((p) => Math.min(96, p + 8))}
+              className="px-2 h-full text-stone-600 hover:bg-stone-100 rounded-r-lg cursor-pointer"
+              title="확대"
             >
-              팝업 미로
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadPreset('theatre_thrust')}
-              className="px-2.5 py-1 bg-white hover:bg-stone-200 rounded-lg font-bold text-stone-700 shadow-2xs cursor-pointer"
-            >
-              소극장 T자
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadPreset('cafe_market')}
-              className="px-2.5 py-1 bg-white hover:bg-stone-200 rounded-lg font-bold text-stone-700 shadow-2xs cursor-pointer"
-            >
-              카페&amp;마켓
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadPreset('blank')}
-              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-bold cursor-pointer"
-            >
-              리셋
+              <ZoomIn className="w-3.5 h-3.5" />
             </button>
           </div>
+          <button
+            type="button"
+            onClick={fitToWidth}
+            className="h-8 px-2.5 text-xs font-semibold bg-white border border-stone-300 rounded-lg text-stone-700 hover:bg-stone-100 cursor-pointer"
+            title="화면에 맞추기"
+          >
+            맞춤
+          </button>
+        </div>
 
-          {/* Simulation */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsSimulating(!isSimulating)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-black text-xs border-2 border-stone-900 transition-all cursor-pointer ${
+            className={`h-8 flex items-center gap-1.5 px-3 text-xs font-semibold rounded-lg border cursor-pointer ${
               isSimulating
-                ? 'bg-rose-500 text-white animate-pulse shadow-[2px_2px_0px_#1c1917]'
-                : 'bg-emerald-400 hover:bg-emerald-300 text-stone-950 shadow-[2px_2px_0px_#1c1917]'
+                ? 'bg-rose-50 border-rose-300 text-rose-700'
+                : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100'
             }`}
           >
-            {isSimulating ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            <span>{isSimulating ? '시뮬레이션 중지' : '🚶 동선 테스트'}</span>
+            {isSimulating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{isSimulating ? '중지' : '동선 테스트'}</span>
           </button>
-
-          {/* Save / Export JSON */}
           <button
             type="button"
             onClick={handleCopyJson}
-            className="flex items-center gap-1 px-3 py-2 bg-white hover:bg-stone-100 text-stone-800 text-xs font-bold rounded-xl border border-stone-300 cursor-pointer"
+            className="h-8 px-2.5 flex items-center text-stone-600 bg-white border border-stone-300 rounded-lg hover:bg-stone-100 cursor-pointer"
+            title="JSON 복사"
           >
             {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>JSON</span>
           </button>
-
           <button
             type="button"
             onClick={() => {
               if (onSaveLayout) onSaveLayout({ tiles, stats });
-              if (onShowToast) onShowToast('💾 자유 커스텀 배치도가 성공적으로 저장되었습니다!');
+              if (onShowToast) onShowToast('💾 배치도가 저장되었습니다.');
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer"
+            className="h-8 flex items-center gap-1.5 px-3.5 text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white rounded-lg cursor-pointer"
           >
-            <Save className="w-4 h-4" />
-            <span>배치 저장</span>
+            <Save className="w-3.5 h-3.5" />
+            <span>저장</span>
           </button>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. REAL-TIME SPATIAL KPI BAR */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl">
-          <div className="text-[10px] font-bold text-stone-400">총 배치 좌석</div>
-          <div className="text-xl font-black text-stone-900 font-mono mt-0.5">
-            {stats.totalSeats}석
+      {/* ===== BODY: 팔레트 | 캔버스 | 속성 ===== */}
+      <div className="flex">
+        {/* --- 팔레트 --- */}
+        <aside className="w-52 shrink-0 border-r border-stone-200 bg-white max-h-[720px] overflow-y-auto p-3 space-y-4">
+          {/* 편집 도구 */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {TOOLS_CONFIG.filter((t) => t.category === 'tool').map((t) => {
+              const Icon = t.icon;
+              const active = activeTool === t.type;
+              return (
+                <button
+                  key={t.type}
+                  type="button"
+                  onClick={() => setActiveTool(t.type as any)}
+                  className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold border cursor-pointer ${
+                    active
+                      ? 'bg-stone-900 text-white border-stone-900'
+                      : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                  }`}
+                  title={t.description}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{t.type === 'inspect' ? '선택' : '지우개'}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="text-[9px] text-amber-700 font-mono font-bold">
-            커스텀 {stats.customSeats}석 / VIP {stats.vipSeats} / R {stats.rSeats}
-          </div>
-        </div>
 
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl">
-          <div className="text-[10px] font-bold text-stone-400">좌석 예상 총매출</div>
-          <div className="text-xl font-black text-amber-600 font-mono mt-0.5">
-            ₩{stats.totalRevenue.toLocaleString()}
-          </div>
-          <div className="text-[9px] text-stone-500 font-mono">전석 매진 기준</div>
-        </div>
+          {(
+            [
+              { key: 'path', title: '길 · 출입구' },
+              { key: 'seat', title: '좌석' },
+              { key: 'booth', title: '부스 · 시설' },
+            ] as const
+          ).map((group) => (
+            <div key={group.key}>
+              <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1.5 px-1">
+                {group.title}
+              </div>
+              <div className="space-y-0.5">
+                {TOOLS_CONFIG.filter((t) => t.category === group.key).map((t) => {
+                  const Icon = t.icon;
+                  const active = activeTool === t.type;
+                  return (
+                    <button
+                      key={t.type}
+                      type="button"
+                      onClick={() => setActiveTool(t.type as any)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left cursor-pointer ${
+                        active ? 'bg-amber-100 text-stone-900 font-bold' : 'text-stone-700 hover:bg-stone-50'
+                      }`}
+                      title={t.description}
+                    >
+                      <span
+                        className={`w-5 h-5 shrink-0 rounded flex items-center justify-center border ${t.bgColor} ${t.borderColor} ${t.color}`}
+                      >
+                        <Icon className="w-3 h-3" />
+                      </span>
+                      <span className="truncate">{t.label.replace(/^[^\p{L}\p{N}]+/u, '')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl">
-          <div className="text-[10px] font-bold text-stone-400">부스 &amp; 체험존</div>
-          <div className="text-xl font-black text-rose-600 font-mono mt-0.5">
-            {stats.boothCount}개
-          </div>
-          <div className="text-[9px] text-rose-700 font-mono font-bold">MD, 포토존, 가챠</div>
-        </div>
-
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl">
-          <div className="text-[10px] font-bold text-stone-400">보행로 (길) 면적</div>
-          <div className="text-xl font-black text-stone-900 font-mono mt-0.5">
-            {stats.pathCount}칸 <span className="text-xs font-normal text-stone-400">({stats.pathRatio}%)</span>
-          </div>
-          <div className="text-[9px] text-emerald-700 font-mono font-bold">원활한 보행 폭 유지</div>
-        </div>
-
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl">
-          <div className="text-[10px] font-bold text-stone-400">출입구 게이트</div>
-          <div className="text-xl font-black text-stone-900 font-mono mt-0.5">
-            IN {stats.entrances} / OUT {stats.exits}
-          </div>
-          <div className="text-[9px] text-stone-500 font-mono">시작과 퇴장 지점</div>
-        </div>
-
-        <div className="bg-stone-50 border-2 border-stone-200 p-3 rounded-2xl col-span-2 sm:col-span-1">
-          <div className="text-[10px] font-bold text-stone-400">동선 검증 상태</div>
-          <div className="text-xs font-black mt-1 font-mono">
-            {pathValidation.valid ? (
-              <span className="text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 정상 연결
-              </span>
-            ) : (
-              <span className="text-rose-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> 동선 단절
-              </span>
-            )}
-          </div>
-          <div className="text-[9px] text-stone-500 mt-0.5 truncate">{pathValidation.message}</div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. TOP HORIZONTAL RIBBON TOOLBAR (대형 가로형 툴바 & 팔레트) */}
-      {/* ========================================================================= */}
-      <div className="bg-stone-50 border-2 border-stone-900 rounded-2xl p-3 sm:p-4 space-y-3 shadow-[3px_3px_0px_#1c1917]">
-        
-        {/* Category Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 pb-2.5">
-          <span className="text-xs font-black text-stone-400 uppercase tracking-wider font-mono mr-1">
-            카테고리:
-          </span>
-
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('custom')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeCategoryTab === 'custom'
-                ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917]'
-                : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-amber-700" />
-            <span>⭐ 내가 만든 커스텀 블록</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-stone-900 text-amber-300 font-mono">
-              {customBlocks.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('path')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeCategoryTab === 'path'
-                ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917]'
-                : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <Footprints className="w-4 h-4 text-stone-700" />
-            <span>🚶 길 &amp; 관람 동선 &amp; 게이트</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('seat')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeCategoryTab === 'seat'
-                ? 'bg-purple-900 text-amber-300 border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917]'
-                : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <Users className="w-4 h-4 text-purple-600" />
-            <span>🪑 기본 좌석 (VIP/R/S/일반)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('booth')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeCategoryTab === 'booth'
-                ? 'bg-rose-500 text-white border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917]'
-                : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            <span>🏪 팝업 부스 &amp; 포토존 &amp; 시설</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('tool')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeCategoryTab === 'tool'
-                ? 'bg-stone-900 text-amber-300 border-2 border-stone-900 shadow-[2px_2px_0px_#f59e0b]'
-                : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-100'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>🧹 편집 도구 (선택/지우개)</span>
-          </button>
-        </div>
-
-        {/* Horizontal Block Cards Strip */}
-        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-thin">
-          
-          {/* CATEGORY: CUSTOM BLOCKS */}
-          {activeCategoryTab === 'custom' && (
-            <>
-              {/* Creator Card */}
+          {/* 내 블록 */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">내 블록</span>
               <button
                 type="button"
                 onClick={() => setIsCustomModalOpen(true)}
-                className="shrink-0 flex items-center gap-2 px-4 py-3 bg-amber-100/70 hover:bg-amber-200 text-stone-900 font-black text-xs rounded-2xl border-2 border-dashed border-amber-500 cursor-pointer transition-all"
+                className="p-0.5 rounded text-stone-500 hover:bg-stone-100 hover:text-stone-900 cursor-pointer"
+                title="새 블록 만들기"
               >
-                <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center border border-stone-900 shadow-2xs">
-                  <Plus className="w-5 h-5 text-stone-950" />
-                </div>
-                <div className="text-left">
-                  <div>+ 새 블록 만들기</div>
-                  <div className="text-[10px] text-stone-500 font-normal">크기·좌석·이름 자유 설정</div>
-                </div>
+                <Plus className="w-3.5 h-3.5" />
               </button>
-
+            </div>
+            <div className="space-y-0.5">
               {customBlocks.map((block) => {
-                const isSelected = activeTool === 'custom' && activeCustomBlockId === block.id;
+                const active = activeTool === 'custom' && activeCustomBlockId === block.id;
                 return (
                   <button
                     key={block.id}
@@ -2147,878 +2045,362 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
                       setActiveTool('custom');
                       setActiveCustomBlockId(block.id);
                     }}
-                    className={`shrink-0 flex items-center gap-2.5 p-2.5 px-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left min-w-[170px] ${
-                      isSelected
-                        ? 'bg-stone-900 text-amber-300 border-stone-900 shadow-[3px_3px_0px_#f59e0b] scale-105'
-                        : 'bg-white border-stone-200 text-stone-800 hover:border-amber-400 hover:bg-amber-50/40'
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left cursor-pointer ${
+                      active ? 'bg-amber-100 text-stone-900 font-bold' : 'text-stone-700 hover:bg-stone-50'
                     }`}
                   >
-                    <span className="text-2xl drop-shadow-2xs">{block.emoji}</span>
-                    <div className="truncate">
-                      <div className="text-xs font-black truncate">{block.name}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-stone-100 text-stone-700 border border-stone-300">
-                          {block.width}×{block.height}
-                        </span>
-                        <span className="text-[10px] opacity-80 font-mono font-bold">
-                          {block.isSeat ? `₩${(block.price || 0).toLocaleString()}` : `${block.capacity}명`}
-                        </span>
-                      </div>
-                    </div>
+                    <span className="w-5 text-center text-sm">{block.emoji}</span>
+                    <span className="truncate flex-1">{block.name}</span>
+                    <span className="text-[10px] font-mono text-stone-400">
+                      {block.width}×{block.height}
+                    </span>
                   </button>
                 );
               })}
-            </>
-          )}
-
-          {/* CATEGORY: PATHS & FLOW */}
-          {activeCategoryTab === 'path' &&
-            TOOLS_CONFIG.filter((t) => t.category === 'path').map((t) => {
-              const isSelected = activeTool === t.type;
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.type}
-                  type="button"
-                  onClick={() => setActiveTool(t.type as any)}
-                  className={`shrink-0 flex items-center gap-2 p-2.5 px-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-amber-400 text-stone-950 border-stone-900 shadow-[3px_3px_0px_#1c1917] scale-105'
-                      : `${t.bgColor} ${t.borderColor} ${t.color} hover:brightness-95`
-                  }`}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black">{t.label}</div>
-                    <div className="text-[10px] opacity-75 line-clamp-1">{t.description}</div>
-                  </div>
-                </button>
-              );
-            })}
-
-          {/* CATEGORY: SEATS */}
-          {activeCategoryTab === 'seat' &&
-            TOOLS_CONFIG.filter((t) => t.category === 'seat').map((t) => {
-              const isSelected = activeTool === t.type;
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.type}
-                  type="button"
-                  onClick={() => setActiveTool(t.type as any)}
-                  className={`shrink-0 flex items-center gap-2 p-2.5 px-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-purple-900 text-amber-300 border-stone-900 shadow-[3px_3px_0px_#1c1917] scale-105'
-                      : `${t.bgColor} ${t.borderColor} ${t.color} hover:brightness-95`
-                  }`}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black">{t.label}</div>
-                    <div className="text-[10px] font-mono font-bold">{t.badge || '지정석'}</div>
-                  </div>
-                </button>
-              );
-            })}
-
-          {/* CATEGORY: BOOTHS & FACILITIES */}
-          {activeCategoryTab === 'booth' &&
-            TOOLS_CONFIG.filter((t) => t.category === 'booth').map((t) => {
-              const isSelected = activeTool === t.type;
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.type}
-                  type="button"
-                  onClick={() => setActiveTool(t.type as any)}
-                  className={`shrink-0 flex items-center gap-2 p-2.5 px-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-rose-500 text-white border-stone-900 shadow-[3px_3px_0px_#1c1917] scale-105'
-                      : `${t.bgColor} ${t.borderColor} ${t.color} hover:brightness-95`
-                  }`}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black">{t.label}</div>
-                    <div className="text-[10px] opacity-75">{t.badge || '체험 시설'}</div>
-                  </div>
-                </button>
-              );
-            })}
-
-          {/* CATEGORY: TOOLS */}
-          {activeCategoryTab === 'tool' &&
-            TOOLS_CONFIG.filter((t) => t.category === 'tool').map((t) => {
-              const isSelected = activeTool === t.type;
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.type}
-                  type="button"
-                  onClick={() => setActiveTool(t.type as any)}
-                  className={`shrink-0 flex items-center gap-2 p-2.5 px-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-stone-900 text-amber-300 border-stone-900 shadow-[3px_3px_0px_#f59e0b] scale-105'
-                      : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100'
-                  }`}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black">{t.label}</div>
-                    <div className="text-[10px] text-stone-400">{t.description}</div>
-                  </div>
-                </button>
-              );
-            })}
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. CANVAS HEADER & ZOOM CONTROLS (Ergonomic Viewport Controls) */}
-      {/* ========================================================================= */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-stone-100/80 px-4 py-2.5 rounded-2xl border border-stone-300 text-xs">
-        
-        {/* Left: Active Brush Indicator */}
-        <div className="flex items-center gap-2">
-          <span className="text-stone-400 font-bold font-mono">선택 브러시:</span>
-          <span className="px-3 py-1 bg-stone-900 text-amber-300 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-2xs">
-            {activeTool === 'custom' ? (
-              <>
-                <span className="text-base">{customBlocks.find((b) => b.id === activeCustomBlockId)?.emoji || '⭐'}</span>
-                <span>{customBlocks.find((b) => b.id === activeCustomBlockId)?.name || '커스텀 블록'}</span>
-                <span className="text-[10px] opacity-75 font-mono">
-                  ({customBlocks.find((b) => b.id === activeCustomBlockId)?.width}×{customBlocks.find((b) => b.id === activeCustomBlockId)?.height})
-                </span>
-              </>
-            ) : (
-              <span>{TOOLS_CONFIG.find((t) => t.type === activeTool)?.label || activeTool}</span>
-            )}
-          </span>
-
-          {/* Quick Eraser Toggle */}
-          <button
-            type="button"
-            onClick={() => setActiveTool(activeTool === 'eraser' ? 'path' : 'eraser')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-              activeTool === 'eraser'
-                ? 'bg-rose-500 text-white border-rose-700 shadow-2xs'
-                : 'bg-white border-stone-300 text-stone-700 hover:bg-rose-50 hover:text-rose-700'
-            }`}
-          >
-            <Eraser className="w-3.5 h-3.5" />
-            <span>지우개</span>
-          </button>
-        </div>
-
-        {/* Quick Blueprint Block Expand Buttons */}
-        <div className="hidden sm:flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-stone-300 shadow-2xs">
-          <span className="text-stone-400 font-bold font-mono text-[10px]">도안 블록:</span>
-          <button
-            type="button"
-            onClick={() => expandColsRight(1)}
-            className="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95"
-            title="우측으로 1열 블럭 추가"
-          >
-            +1열
-          </button>
-          <button
-            type="button"
-            onClick={() => expandRowsBottom(1)}
-            className="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95"
-            title="하단으로 1행 블럭 추가"
-          >
-            +1행
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setChunkWidth(3);
-              setChunkHeight(3);
-              setDimModalTab('chunk');
-              setIsDimensionModalOpen(true);
-            }}
-            className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95 flex items-center gap-0.5"
-            title="3×3 등 구역 블록 추가 모달 열기"
-          >
-            <span>+구역 블럭</span>
-          </button>
-        </div>
-
-        {/* Center: Zoom Level & Cell Size Presets */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-stone-400 font-bold font-mono">타일 크기:</span>
-
-          <button
-            type="button"
-            onClick={() => setCellSize((prev) => Math.max(38, prev - 10))}
-            className="p-1 rounded-lg bg-white border border-stone-300 hover:bg-stone-200 cursor-pointer"
-            title="축소"
-          >
-            <ZoomOut className="w-3.5 h-3.5 text-stone-700" />
-          </button>
-
-          {[
-            { label: '보통', size: 46 },
-            { label: '크게', size: 60 },
-            { label: '특대', size: 74 },
-            { label: '초특대', size: 88 },
-          ].map((preset) => (
-            <button
-              key={preset.size}
-              type="button"
-              onClick={() => setCellSize(preset.size)}
-              className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                cellSize === preset.size
-                  ? 'bg-stone-900 text-amber-300 font-black shadow-2xs'
-                  : 'bg-white border border-stone-300 text-stone-600 hover:bg-stone-200'
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            onClick={() => setCellSize((prev) => Math.min(100, prev + 10))}
-            className="p-1 rounded-lg bg-white border border-stone-300 hover:bg-stone-200 cursor-pointer"
-            title="확대"
-          >
-            <ZoomIn className="w-3.5 h-3.5 text-stone-700" />
-          </button>
-        </div>
-
-        {/* Right: Inspector Toggle */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsInspectorOpen(!isInspectorOpen)}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
-              isInspectorOpen
-                ? 'bg-purple-900 text-amber-300 border-purple-900'
-                : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-200'
-            }`}
-          >
-            {isInspectorOpen ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
-            <span>{isInspectorOpen ? '인스펙터 접기' : '인스펙터 열기'}</span>
-          </button>
-        </div>
-
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 5. MAIN WORKSPACE: WIDE EXPANSIVE CANVAS + DOCKED INSPECTOR */}
-      {/* ========================================================================= */}
-      <div className="flex flex-col lg:flex-row gap-5 items-start">
-        
-        {/* The Spacious 2D Grid Canvas (Occupies full space or flex-1) */}
-        <div id="sandbox-canvas-viewport" className="flex-1 min-w-0 space-y-2">
-          <div
-            ref={gridContainerRef}
-            className="p-3 sm:p-5 bg-stone-900 border-3 border-stone-900 rounded-3xl shadow-[5px_5px_0px_#1c1917] overflow-auto max-h-[740px] select-none"
-          >
-            {/* TOP EDGE BLOCK EXPANDER */}
-            <div className="flex items-center justify-center gap-2 pb-2.5">
               <button
                 type="button"
-                onClick={() => expandRowsTop(1)}
-                className="px-3 py-1 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                title="도안 상단에 1행 블록 추가"
+                onClick={() => setIsCustomModalOpen(true)}
+                className="w-full mt-1 py-1.5 rounded-lg border border-dashed border-stone-300 text-[11px] text-stone-500 hover:border-stone-500 hover:text-stone-800 cursor-pointer"
               >
-                <ArrowUp className="w-3.5 h-3.5" />
-                <span>+ 상단 1행 블록 추가</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => expandRowsTop(3)}
-                className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 font-bold text-[11px] rounded-xl border border-dashed border-stone-700 cursor-pointer"
-                title="상단에 3행 블록 추가"
-              >
-                +3행
+                + 새 블록
               </button>
             </div>
+          </div>
+        </aside>
 
-            {/* MIDDLE ROW: LEFT EXPANDER + CANVAS + RIGHT EXPANDER */}
-            <div className="flex items-center justify-center gap-2.5">
-              {/* LEFT EDGE BLOCK EXPANDER */}
-              <button
-                type="button"
-                onClick={() => expandColsLeft(1)}
-                className="py-10 px-2 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs active:scale-95"
-                title="도안 좌측에 1열 블록 추가"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="[writing-mode:vertical-lr] text-[11px] tracking-widest font-black">
-                  +좌측 1열
-                </span>
-              </button>
-
-              {/* INNER GRID */}
-              <div
-                className="grid gap-[3px] bg-stone-800 p-3 rounded-2xl mx-auto shadow-inner"
-                style={{
-                  width: 'max-content',
-                  gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
-                  gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
-                }}
-              >
-                {tiles.map((t) => renderTileVisual(t))}
+        {/* --- 캔버스 --- */}
+        <main id="sandbox-canvas-viewport" className="flex-1 min-w-0 flex flex-col bg-stone-100">
+          <div ref={gridContainerRef} className="flex-1 overflow-auto max-h-[680px] p-6 select-none">
+            <div className="flex w-max mx-auto">
+              <div>
+                <div
+                  className="grid gap-[2px] bg-stone-300 p-[2px] rounded-lg"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
+                    gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+                  }}
+                >
+                  {tiles.map((t) => renderTileVisual(t))}
+                </div>
+                {/* 아래로 한 줄 추가 */}
+                <button
+                  type="button"
+                  onClick={() => expandRowsBottom(1)}
+                  className="mt-1.5 w-full h-6 rounded-md border border-dashed border-stone-300 text-stone-400 hover:border-stone-500 hover:text-stone-700 hover:bg-white flex items-center justify-center cursor-pointer"
+                  title="아래로 한 줄 추가"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
-
-              {/* RIGHT EDGE BLOCK EXPANDER */}
+              {/* 오른쪽으로 한 칸 추가 */}
               <button
                 type="button"
                 onClick={() => expandColsRight(1)}
-                className="py-10 px-2 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs active:scale-95"
-                title="도안 우측에 1열 블록 추가"
+                className="ml-1.5 w-6 rounded-md border border-dashed border-stone-300 text-stone-400 hover:border-stone-500 hover:text-stone-700 hover:bg-white flex items-center justify-center cursor-pointer"
+                style={{ height: gridRows * (cellSize + 2) + 2 }}
+                title="오른쪽으로 한 칸 추가"
               >
-                <ArrowRight className="w-3.5 h-3.5" />
-                <span className="[writing-mode:vertical-lr] text-[11px] tracking-widest font-black">
-                  +우측 1열
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 상태 바 */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-stone-200 bg-white text-[11px] text-stone-500">
+            <span>
+              좌석 <b className="text-stone-800">{stats.totalSeats}</b>
+            </span>
+            <span>
+              예상 매출 <b className="text-stone-800">₩{stats.totalRevenue.toLocaleString()}</b>
+            </span>
+            <span>
+              부스 <b className="text-stone-800">{stats.boothCount}</b>
+            </span>
+            <span>
+              입구 {stats.entrances} · 출구 {stats.exits}
+            </span>
+            <span
+              className={`ml-auto flex items-center gap-1 font-semibold ${
+                pathValidation.valid ? 'text-emerald-600' : 'text-rose-500'
+              }`}
+              title={pathValidation.message}
+            >
+              {pathValidation.valid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+              {pathValidation.valid ? '동선 정상' : pathValidation.message}
+            </span>
+          </div>
+        </main>
+
+        {/* --- 속성 패널 (블록 선택 시에만) --- */}
+        {selectedTile && isInspectorOpen && (
+          <aside className="w-72 shrink-0 border-l border-stone-200 bg-white max-h-[720px] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200">
+              <div className="flex items-center gap-2 min-w-0">
+                {selectedTile.emoji && <span className="text-lg">{selectedTile.emoji}</span>}
+                <span className="text-sm font-bold text-stone-900 truncate">
+                  {selectedTile.label || '블록 속성'}
                 </span>
-              </button>
-            </div>
-
-            {/* BOTTOM EDGE BLOCK EXPANDER */}
-            <div className="flex items-center justify-center gap-2 pt-2.5">
-              <button
-                type="button"
-                onClick={() => expandRowsBottom(1)}
-                className="px-3 py-1 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                title="도안 하단에 1행 블록 추가"
-              >
-                <ArrowDown className="w-3.5 h-3.5" />
-                <span>+ 하단 1행 블록 추가</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => expandRowsBottom(3)}
-                className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 font-bold text-[11px] rounded-xl border border-dashed border-stone-700 cursor-pointer"
-                title="하단에 3행 블록 추가"
-              >
-                +3행
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between text-xs text-stone-500 px-2 pt-1 gap-2">
-            <span>💡 <strong>Tip:</strong> 캔버스 테두리의 <code>[+블록 추가]</code> 버튼을 누르면 원하는 방향으로 도안 블록이 착착 덧붙여집니다.</span>
-            <div className="flex items-center gap-3">
-              <span className="text-purple-700 font-mono font-bold">도안 규격: {gridCols}×{gridRows}칸 ({gridCols * gridRows}블럭)</span>
-              <span className="text-amber-600 font-bold font-mono">1타일 = 약 1.5m ({cellSize}px)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* DOCKED RIGHT INSPECTOR (Clean, Spacious, and Collapsible) */}
-        {isInspectorOpen && (
-          <div className="w-full lg:w-84 xl:w-92 bg-stone-50 border-2 border-stone-900 rounded-2xl p-4 sm:p-5 space-y-4 shadow-[4px_4px_0px_#1c1917] shrink-0 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-2.5">
-              <div className="flex items-center gap-1.5">
-                <Eye className="w-4 h-4 text-purple-600" />
-                <h4 className="text-sm font-black text-stone-900">블록 속성 인스펙터</h4>
               </div>
               <button
                 type="button"
-                onClick={() => setIsInspectorOpen(false)}
-                className="p-1 hover:bg-stone-200 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
-                title="인스펙터 닫기"
+                onClick={() => setSelectedTileId(null)}
+                className="p-1 rounded text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {selectedTile ? (
-              <div className="space-y-4 text-xs">
-                
-                {/* Coordinates & Type */}
-                <div className="bg-white border border-stone-200 p-3 rounded-xl space-y-1">
-                  <div className="text-[10px] text-stone-400 font-mono">좌표 / ID</div>
-                  <div className="font-bold text-stone-900 font-mono flex items-center justify-between">
-                    <span className="text-sm">[{selectedTile.x}, {selectedTile.y}] ({selectedTile.id})</span>
-                    {selectedTile.emoji && <span className="text-2xl">{selectedTile.emoji}</span>}
-                  </div>
-                  <div className="text-[11px] text-purple-600 font-bold uppercase mt-1">
-                    타입: {selectedTile.isCustom ? '커스텀 멀티 블록' : selectedTile.type}
-                  </div>
-                </div>
+            <div className="p-4 space-y-4 text-xs">
+              <div>
+                <label className="block text-[11px] font-semibold text-stone-500 mb-1">이름</label>
+                <input
+                  type="text"
+                  value={selectedTile.label || ''}
+                  onChange={(e) => handleUpdateSelectedTile({ label: e.target.value })}
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:border-stone-900"
+                />
+              </div>
 
-                {/* 1. Name Editor */}
-                <div>
-                  <label className="block text-xs font-black text-stone-800 mb-1 flex items-center gap-1">
-                    <Tag className="w-3.5 h-3.5 text-amber-500" />
-                    <span>블록 표시 이름 (Name)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedTile.label || ''}
-                    onChange={(e) => handleUpdateSelectedTile({ label: e.target.value })}
-                    placeholder="예: VVIP 2인 소파석, 초대형 포토월..."
-                    className="w-full px-3 py-2 bg-white border-2 border-stone-300 rounded-xl text-xs sm:text-sm font-black text-stone-900 focus:outline-hidden focus:border-amber-400 shadow-2xs"
-                  />
-                </div>
-
-                {/* 2. Block Dimensions (Width x Height) */}
-                <div>
-                  <label className="block text-xs font-black text-stone-800 mb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Box className="w-3.5 h-3.5 text-purple-600" />
-                      <span>블록 크기 조절 (가로×세로 칸수)</span>
-                    </span>
-                    <span className="font-mono text-purple-700 font-black">
-                      {selectedTile.width || 1}W × {selectedTile.height || 1}H
-                    </span>
-                  </label>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-stone-500 w-12">가로(W):</span>
-                      {[1, 2, 3, 4].map((w) => (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={() => handleResizeSelectedTile(w, selectedTile.height || 1)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-black border transition-all cursor-pointer ${
-                            (selectedTile.width || 1) === w
-                              ? 'bg-purple-900 text-amber-300 border-purple-900 font-black shadow-xs'
-                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                          }`}
-                        >
-                          {w}칸
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-stone-500 w-12">세로(H):</span>
-                      {[1, 2, 3, 4].map((h) => (
-                        <button
-                          key={h}
-                          type="button"
-                          onClick={() => handleResizeSelectedTile(selectedTile.width || 1, h)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-black border transition-all cursor-pointer ${
-                            (selectedTile.height || 1) === h
-                              ? 'bg-purple-900 text-amber-300 border-purple-900 font-black shadow-xs'
-                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                          }`}
-                        >
-                          {h}칸
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Seat Settings */}
-                <div className="p-3 bg-amber-50/70 border border-amber-300 rounded-xl space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black text-amber-950 flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!selectedTile.isSeat}
-                        onChange={(e) => handleUpdateSelectedTile({ isSeat: e.target.checked })}
-                        className="rounded-sm text-amber-500 w-4 h-4"
-                      />
-                      <span>유료 관람 좌석으로 운영</span>
-                    </label>
-                    {selectedTile.isSeat && (
-                      <span className="text-[10px] px-2 py-0.5 bg-amber-200 text-amber-900 font-black rounded-md">
-                        좌석 활성
-                      </span>
-                    )}
-                  </div>
-
-                  {selectedTile.isSeat && (
-                    <div className="space-y-2 pt-2 border-t border-amber-200">
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                          좌석 등급명
-                        </label>
-                        <input
-                          type="text"
-                          value={selectedTile.seatGrade || ''}
-                          onChange={(e) => handleUpdateSelectedTile({ seatGrade: e.target.value })}
-                          placeholder="예: VVIP, 커플석, 발코니석"
-                          className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold text-stone-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                          티켓 판매 가격 (₩)
-                        </label>
-                        <input
-                          type="number"
-                          value={selectedTile.price || 0}
-                          onChange={(e) =>
-                            handleUpdateSelectedTile({ price: parseInt(e.target.value) || 0 })
-                          }
-                          className="w-full px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-black font-mono text-stone-900"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 4. Capacity */}
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                    동시 체류 / 수용 인원 (명)
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedTile.capacity || 1}
-                    onChange={(e) =>
-                      handleUpdateSelectedTile({ capacity: parseInt(e.target.value) || 1 })
-                    }
-                    className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold font-mono text-stone-900 focus:outline-hidden focus:border-amber-400"
-                  />
-                </div>
-
-                {/* 5. Operation Notes */}
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                    현장 운영 메모 / 지침
-                  </label>
-                  <textarea
-                    value={selectedTile.note || ''}
-                    onChange={(e) => handleUpdateSelectedTile({ note: e.target.value })}
-                    placeholder="예: 웰컴 샴페인 제공, 220V 16A 전원 배치..."
-                    rows={2}
-                    className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs text-stone-900 focus:outline-hidden focus:border-amber-400"
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="pt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleResizeSelectedTile(1, 1);
-                      handleUpdateSelectedTile({
-                        type: 'empty',
-                        label: '',
-                        price: undefined,
-                        isCustom: false,
-                      });
-                      if (onShowToast) onShowToast('선택한 블록이 지워졌습니다.');
-                    }}
-                    className="w-full py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              <div>
+                <label className="block text-[11px] font-semibold text-stone-500 mb-1">크기 (가로 × 세로)</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedTile.width || 1}
+                    onChange={(e) => handleResizeSelectedTile(parseInt(e.target.value), selectedTile.height || 1)}
+                    className="flex-1 px-2 py-1.5 border border-stone-300 rounded-lg text-sm"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>이 블록 비우기</span>
-                  </button>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>{n}칸</option>
+                    ))}
+                  </select>
+                  <span className="text-stone-400">×</span>
+                  <select
+                    value={selectedTile.height || 1}
+                    onChange={(e) => handleResizeSelectedTile(selectedTile.width || 1, parseInt(e.target.value))}
+                    className="flex-1 px-2 py-1.5 border border-stone-300 rounded-lg text-sm"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>{n}칸</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            ) : (
-              <div className="p-8 text-center text-stone-400 space-y-2">
-                <Eye className="w-8 h-8 mx-auto opacity-30" />
-                <p className="text-xs">
-                  캔버스 위의 블록을 클릭하면 <strong className="text-stone-700">이름, 크기(W×H), 좌석 가격, 정원</strong>을 여기서 자유롭게 변경할 수 있습니다.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!selectedTile.isSeat}
+                  onChange={(e) => handleUpdateSelectedTile({ isSeat: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="font-semibold text-stone-700">유료 좌석으로 판매</span>
+              </label>
+
+              {selectedTile.isSeat && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-500 mb-1">등급</label>
+                    <input
+                      type="text"
+                      value={selectedTile.seatGrade || ''}
+                      onChange={(e) => handleUpdateSelectedTile({ seatGrade: e.target.value })}
+                      placeholder="VIP"
+                      className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-500 mb-1">가격 (₩)</label>
+                    <input
+                      type="number"
+                      value={selectedTile.price || 0}
+                      onChange={(e) => handleUpdateSelectedTile({ price: parseInt(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-semibold text-stone-500 mb-1">수용 인원</label>
+                <input
+                  type="number"
+                  value={selectedTile.capacity || 1}
+                  onChange={(e) => handleUpdateSelectedTile({ capacity: parseInt(e.target.value) || 1 })}
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-stone-500 mb-1">메모</label>
+                <textarea
+                  value={selectedTile.note || ''}
+                  onChange={(e) => handleUpdateSelectedTile({ note: e.target.value })}
+                  rows={2}
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleResizeSelectedTile(1, 1);
+                  handleUpdateSelectedTile({ type: 'empty', label: '', price: undefined, isCustom: false });
+                  setSelectedTileId(null);
+                }}
+                className="w-full py-2 text-rose-600 hover:bg-rose-50 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                블록 삭제
+              </button>
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* 6. MODAL: BLUEPRINT DIMENSIONS & ZONE BLOCK EXTENSION */}
-      {/* ========================================================================= */}
+      {/* ===== 도안 크기 모달 ===== */}
       {isDimensionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white border-3 border-stone-900 rounded-3xl max-w-lg w-full p-6 shadow-[8px_8px_0px_#1c1917] space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b-2 border-stone-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-amber-400 border-2 border-stone-900 rounded-xl shadow-2xs">
-                  <Maximize2 className="w-5 h-5 text-stone-950" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-stone-950">도안 크기 조절 & 블럭 증설</h3>
-                  <p className="text-[11px] text-stone-500 font-bold">
-                    현재 규격: {gridCols}칸 × {gridRows}칸 (총 {gridCols * gridRows} 블럭)
-                  </p>
-                </div>
-              </div>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setIsDimensionModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-stone-900">도안 크기</h3>
               <button
                 type="button"
                 onClick={() => setIsDimensionModalOpen(false)}
-                className="p-1.5 hover:bg-stone-100 rounded-xl text-stone-400 hover:text-stone-700 cursor-pointer"
+                className="p-1 rounded text-stone-400 hover:bg-stone-100 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Navigation Tabs */}
-            <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1.5 rounded-2xl border border-stone-300">
-              <button
-                type="button"
-                onClick={() => setDimModalTab('chunk')}
-                className={`py-2 px-3 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  dimModalTab === 'chunk'
-                    ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-2xs'
-                    : 'text-stone-600 hover:bg-white/60'
-                }`}
-              >
-                <Box className="w-3.5 h-3.5" />
-                <span>🧱 블록 단위로 덧붙이기</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDimModalTab('dimensions')}
-                className={`py-2 px-3 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  dimModalTab === 'dimensions'
-                    ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-2xs'
-                    : 'text-stone-600 hover:bg-white/60'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>📐 전체 규격 직접 조절</span>
-              </button>
+            {/* 전체 크기 */}
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { label: '가로', value: customTargetCols, set: setCustomTargetCols, min: 8, max: 50 },
+                  { label: '세로', value: customTargetRows, set: setCustomTargetRows, min: 6, max: 35 },
+                ] as const
+              ).map((f) => (
+                <div key={f.label}>
+                  <div className="text-[11px] font-semibold text-stone-500 mb-1">{f.label} (칸)</div>
+                  <div className="flex items-center border border-stone-300 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => f.set(Math.max(f.min, f.value - 1))}
+                      className="w-9 h-9 text-stone-600 hover:bg-stone-100 rounded-l-lg cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      value={f.value}
+                      onChange={(e) => f.set(parseInt(e.target.value) || f.min)}
+                      className="flex-1 w-full text-center font-mono font-bold text-sm focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => f.set(Math.min(f.max, f.value + 1))}
+                      className="w-9 h-9 text-stone-600 hover:bg-stone-100 rounded-r-lg cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* TAB 1: ADD BLOCK CHUNK */}
-            {dimModalTab === 'chunk' && (
-              <div className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-xs font-black text-stone-800 mb-1.5">
-                    1. 추가할 도안 블럭 크기 선택
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: '1×1 슬림', w: 1, h: 1 },
-                      { label: '2×2 미니', w: 2, h: 2 },
-                      { label: '3×3 추천', w: 3, h: 3 },
-                      { label: '5×5 대형', w: 5, h: 5 },
-                    ].map((b) => (
-                      <button
-                        key={b.label}
-                        type="button"
-                        onClick={() => {
-                          setChunkWidth(b.w);
-                          setChunkHeight(b.h);
-                        }}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          chunkWidth === b.w && chunkHeight === b.h
-                            ? 'bg-stone-900 text-amber-300 border-stone-900 font-black shadow-2xs'
-                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
-                        }`}
-                      >
-                        <div className="font-mono text-sm">{b.w}×{b.h}</div>
-                        <div className="text-[10px] opacity-80 mt-0.5">{b.label}</div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom W x H stepper */}
-                  <div className="flex items-center justify-between gap-2 mt-2 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
-                    <span className="text-stone-500 font-bold text-[11px]">직접 지정:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-stone-700">가로:</span>
-                      <button
-                        type="button"
-                        onClick={() => setChunkWidth((p) => Math.max(1, p - 1))}
-                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
-                      >
-                        -
-                      </button>
-                      <span className="font-mono font-black text-sm px-1">{chunkWidth}</span>
-                      <button
-                        type="button"
-                        onClick={() => setChunkWidth((p) => Math.min(10, p + 1))}
-                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-stone-700">세로:</span>
-                      <button
-                        type="button"
-                        onClick={() => setChunkHeight((p) => Math.max(1, p - 1))}
-                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
-                      >
-                        -
-                      </button>
-                      <span className="font-mono font-black text-sm px-1">{chunkHeight}</span>
-                      <button
-                        type="button"
-                        onClick={() => setChunkHeight((p) => Math.min(10, p + 1))}
-                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-stone-800 mb-1.5">
-                    2. 도안에 덧붙일 확장 방향 선택
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { dir: 'right', label: '➡️ 우측으로 덧붙이기', desc: `가로 +${chunkWidth}칸 확장` },
-                      { dir: 'bottom', label: '⬇️ 하단으로 덧붙이기', desc: `세로 +${chunkHeight}칸 확장` },
-                      { dir: 'top', label: '⬆️ 상단으로 덧붙이기', desc: `세로 +${chunkHeight}칸 확장` },
-                      { dir: 'left', label: '⬅️ 좌측으로 덧붙이기', desc: `가로 +${chunkWidth}칸 확장` },
-                    ].map((d) => (
-                      <button
-                        key={d.dir}
-                        type="button"
-                        onClick={() => setChunkDirection(d.dir as any)}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          chunkDirection === d.dir
-                            ? 'bg-purple-900 text-amber-300 border-purple-900 font-black shadow-2xs'
-                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
-                        }`}
-                      >
-                        <div className="text-xs">{d.label}</div>
-                        <div className="text-[10px] opacity-75 mt-0.5">{d.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preview Box */}
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-stone-500 font-bold">확장 예상 도안 규격: </span>
-                    <span className="font-mono font-black text-stone-900">
-                      {chunkDirection === 'right' || chunkDirection === 'left' ? gridCols + chunkWidth : gridCols}
-                      {' × '}
-                      {chunkDirection === 'bottom' || chunkDirection === 'top' ? gridRows + chunkHeight : gridRows}
-                      칸
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-amber-200 text-amber-950 font-mono font-bold rounded-lg text-[11px]">
-                    +{chunkDirection === 'right' || chunkDirection === 'left' ? chunkWidth * gridRows : chunkHeight * gridCols} 블럭
-                  </span>
-                </div>
-
-                {/* Submit button */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { name: '소형', cols: 14, rows: 10 },
+                { name: '중형', cols: 20, rows: 12 },
+                { name: '대형', cols: 26, rows: 16 },
+                { name: '특대', cols: 36, rows: 22 },
+              ].map((p) => (
                 <button
+                  key={p.name}
                   type="button"
-                  onClick={() => handleAddBlockChunk(chunkWidth, chunkHeight, chunkDirection)}
-                  className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black rounded-xl border-2 border-stone-900 shadow-[3px_3px_0px_#1c1917] cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setCustomTargetCols(p.cols);
+                    setCustomTargetRows(p.rows);
+                  }}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border cursor-pointer ${
+                    customTargetCols === p.cols && customTargetRows === p.rows
+                      ? 'bg-stone-900 text-white border-stone-900'
+                      : 'border-stone-300 text-stone-600 hover:bg-stone-50'
+                  }`}
                 >
-                  <Box className="w-4 h-4" />
-                  <span>선택한 방향으로 도안 블럭 추가하기</span>
+                  {p.name} {p.cols}×{p.rows}
                 </button>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-stone-400">
+              약 {Math.round(customTargetCols * 1.5)}m × {Math.round(customTargetRows * 1.5)}m (1칸 = 1.5m)
+            </p>
+
+            <button
+              type="button"
+              onClick={() => handleSetGridDimensions(customTargetCols, customTargetRows)}
+              className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-sm font-bold rounded-lg cursor-pointer"
+            >
+              적용
+            </button>
+
+            {/* 블록 덧붙이기 */}
+            <div className="pt-4 border-t border-stone-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-stone-500">블록 덧붙이기</span>
+                <div className="flex gap-1">
+                  {[1, 3, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => {
+                        setChunkWidth(n);
+                        setChunkHeight(n);
+                      }}
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono cursor-pointer ${
+                        chunkWidth === n ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {n}칸
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
-
-            {/* TAB 2: TOTAL DIMENSIONS & PRESETS */}
-            {dimModalTab === 'dimensions' && (
-              <div className="space-y-4 text-xs">
-                {/* Steppers for Columns & Rows */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-stone-50 border border-stone-300 p-3 rounded-2xl space-y-2">
-                    <label className="text-xs font-black text-stone-800 flex items-center justify-between">
-                      <span>가로 칸 수 (Columns)</span>
-                      <span className="text-stone-400 font-mono">8~50</span>
-                    </label>
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setCustomTargetCols((p) => Math.max(8, p - 1))}
-                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
-                      >
-                        -
-                      </button>
-                      <span className="font-mono text-xl font-black text-stone-900">{customTargetCols}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomTargetCols((p) => Math.min(50, p + 1))}
-                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-stone-50 border border-stone-300 p-3 rounded-2xl space-y-2">
-                    <label className="text-xs font-black text-stone-800 flex items-center justify-between">
-                      <span>세로 칸 수 (Rows)</span>
-                      <span className="text-stone-400 font-mono">6~35</span>
-                    </label>
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setCustomTargetRows((p) => Math.max(6, p - 1))}
-                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
-                      >
-                        -
-                      </button>
-                      <span className="font-mono text-xl font-black text-stone-900">{customTargetRows}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomTargetRows((p) => Math.min(35, p + 1))}
-                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Real-world scale calculation */}
-                <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 flex items-center justify-between text-[11px] text-stone-600">
-                  <span>📐 실제 실측 환산 면적 (1타일 = 1.5m):</span>
-                  <span className="font-bold text-stone-900 font-mono">
-                    약 {Math.round(customTargetCols * 1.5)}m × {Math.round(customTargetRows * 1.5)}m ({Math.round(customTargetCols * customTargetRows * 2.25)}㎡)
-                  </span>
-                </div>
-
-                {/* 1-Click Dimension Presets */}
-                <div>
-                  <label className="block text-xs font-black text-stone-800 mb-1.5">
-                    공간 규격 프리셋 원클릭 설정
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {[
-                      { name: '소형 팝업/스토어', cols: 14, rows: 10 },
-                      { name: '표준 중형 전시관', cols: 20, rows: 12 },
-                      { name: '대형 페스티벌홀', cols: 26, rows: 16 },
-                      { name: '특대 컨벤션홀', cols: 32, rows: 20 },
-                      { name: '초대형 엑스포', cols: 40, rows: 24 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => {
-                          setCustomTargetCols(preset.cols);
-                          setCustomTargetRows(preset.rows);
-                        }}
-                        className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
-                          customTargetCols === preset.cols && customTargetRows === preset.rows
-                            ? 'bg-amber-100 border-amber-500 font-black text-stone-950'
-                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
-                        }`}
-                      >
-                        <div className="text-[11px]">{preset.name}</div>
-                        <div className="font-mono text-[10px] text-stone-500">{preset.cols} × {preset.rows}칸</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Submit button */}
-                <button
-                  type="button"
-                  onClick={() => handleSetGridDimensions(customTargetCols, customTargetRows)}
-                  className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-amber-300 font-black rounded-xl border-2 border-stone-900 shadow-[3px_3px_0px_#f59e0b] cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Sliders className="w-4 h-4 text-amber-400" />
-                  <span>설정한 규격({customTargetCols}×{customTargetRows})으로 도안 크기 적용하기</span>
-                </button>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(
+                  [
+                    { dir: 'top', icon: ArrowUp, label: '위' },
+                    { dir: 'bottom', icon: ArrowDown, label: '아래' },
+                    { dir: 'left', icon: ArrowLeft, label: '왼쪽' },
+                    { dir: 'right', icon: ArrowRight, label: '오른쪽' },
+                  ] as const
+                ).map((d) => {
+                  const Icon = d.icon;
+                  return (
+                    <button
+                      key={d.dir}
+                      type="button"
+                      onClick={() => handleAddBlockChunk(chunkWidth, chunkHeight, d.dir)}
+                      className="flex flex-col items-center gap-0.5 py-2 rounded-lg border border-stone-200 text-stone-600 hover:border-stone-900 hover:text-stone-900 cursor-pointer"
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="text-[10px]">{d.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
+
 
       {/* ========================================================================= */}
       {/* MODAL: 새 커스텀 블록 직접 만들기 (이름, 크기, 좌석, 색상 완벽 지원) */}
