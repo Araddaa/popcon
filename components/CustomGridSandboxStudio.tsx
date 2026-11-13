@@ -123,8 +123,8 @@ export interface CustomGridSandboxStudioProps {
 }
 
 // 20 columns x 12 rows
-const GRID_COLS = 20;
-const GRID_ROWS = 12;
+const DEFAULT_GRID_COLS = 20;
+const DEFAULT_GRID_ROWS = 12;
 
 interface ToolMeta {
   type: SandboxTileType | 'eraser' | 'inspect';
@@ -456,10 +456,10 @@ const INITIAL_CUSTOM_BLOCKS: CustomBlockDefinition[] = [
 // Pre-built Layout Templates
 // ----------------------------------------------------
 const PRESET_TEMPLATES = {
-  blank: () => {
+  blank: (cols: number = DEFAULT_GRID_COLS, rows: number = DEFAULT_GRID_ROWS) => {
     const tiles: SandboxTile[] = [];
-    for (let y = 0; y < GRID_ROWS; y++) {
-      for (let x = 0; x < GRID_COLS; x++) {
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
         tiles.push({
           id: `t_${x}_${y}`,
           x,
@@ -715,6 +715,25 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
   onSaveLayout,
   onShowToast,
 }) => {
+  // Blueprint Grid Dimensions (Dynamic Columns x Rows)
+  const [gridCols, setGridCols] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const c = p.get('cols');
+      if (c) return parseInt(c, 10);
+    }
+    return DEFAULT_GRID_COLS;
+  });
+
+  const [gridRows, setGridRows] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const r = p.get('rows');
+      if (r) return parseInt(r, 10);
+    }
+    return DEFAULT_GRID_ROWS;
+  });
+
   // Tile Data State
   const [tiles, setTiles] = useState<SandboxTile[]>(() => {
     if (typeof window !== 'undefined') {
@@ -722,13 +741,33 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       const pr = p.get('sandboxPreset');
       if (pr === 'theatre') return PRESET_TEMPLATES.theatre_thrust();
       if (pr === 'cafe') return PRESET_TEMPLATES.cafe_market();
-      if (pr === 'blank') return PRESET_TEMPLATES.blank();
+      if (pr === 'blank') return PRESET_TEMPLATES.blank(DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS);
     }
     return PRESET_TEMPLATES.popup_loop();
   });
 
-  // Undo History Stack
-  const [history, setHistory] = useState<SandboxTile[][]>([]);
+  // Modal: Blueprint Dimensions & Block Expansion State
+  const [isDimensionModalOpen, setIsDimensionModalOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('openDimModal') === 'true';
+    }
+    return false;
+  });
+  const [dimModalTab, setDimModalTab] = useState<'chunk' | 'dimensions'>('chunk');
+  const [chunkWidth, setChunkWidth] = useState<number>(3);
+  const [chunkHeight, setChunkHeight] = useState<number>(3);
+  const [chunkDirection, setChunkDirection] = useState<'right' | 'bottom' | 'top' | 'left'>('right');
+  const [customTargetCols, setCustomTargetCols] = useState<number>(20);
+  const [customTargetRows, setCustomTargetRows] = useState<number>(12);
+
+  // Undo History Stack with Dimension Snapshots
+  interface HistorySnapshot {
+    tiles: SandboxTile[];
+    cols: number;
+    rows: number;
+  }
+  const [history, setHistory] = useState<HistorySnapshot[]>([]);
 
   // Active Tool & Custom Blocks State
   const [activeTool, setActiveTool] = useState<SandboxTileType | 'eraser' | 'inspect' | 'custom'>('path');
@@ -794,7 +833,14 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
 
   // Push state to Undo History before a modification
   const pushHistory = () => {
-    setHistory((prev) => [...prev.slice(-15), tiles]);
+    setHistory((prev) => [
+      ...prev.slice(-20),
+      {
+        tiles: tiles.map((t) => ({ ...t })),
+        cols: gridCols,
+        rows: gridRows,
+      },
+    ]);
   };
 
   const handleUndo = () => {
@@ -804,8 +850,215 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     }
     const previous = history[history.length - 1];
     setHistory((prev) => prev.slice(0, -1));
-    setTiles(previous);
-    if (onShowToast) onShowToast('↩️ 이전 작업으로 되돌렸습니다.');
+    setTiles(previous.tiles);
+    setGridCols(previous.cols);
+    setGridRows(previous.rows);
+    if (onShowToast) onShowToast(`↩️ 이전 도안 상태(${previous.cols}×${previous.rows})로 되돌렸습니다.`);
+  };
+
+  // Directional Blueprint Block Expansion Methods
+  const expandColsRight = (count: number = 1) => {
+    if (gridCols + count > 50) {
+      if (onShowToast) onShowToast('⚠️ 도안 가로 최대 크기는 50칸입니다.');
+      return;
+    }
+    pushHistory();
+    const newCols = gridCols + count;
+    const newTiles: SandboxTile[] = [];
+    for (let y = 0; y < gridRows; y++) {
+      for (let x = gridCols; x < newCols; x++) {
+        newTiles.push({
+          id: `t_${x}_${y}`,
+          x,
+          y,
+          type: 'empty',
+          width: 1,
+          height: 1,
+          isOrigin: true,
+        });
+      }
+    }
+    setTiles((prev) => [...prev, ...newTiles]);
+    setGridCols(newCols);
+    if (onShowToast) onShowToast(`📐 우측으로 ${count}열 도안 블록이 추가되었습니다. (현재 ${newCols}×${gridRows})`);
+  };
+
+  const expandRowsBottom = (count: number = 1) => {
+    if (gridRows + count > 35) {
+      if (onShowToast) onShowToast('⚠️ 도안 세로 최대 크기는 35칸입니다.');
+      return;
+    }
+    pushHistory();
+    const newRows = gridRows + count;
+    const newTiles: SandboxTile[] = [];
+    for (let y = gridRows; y < newRows; y++) {
+      for (let x = 0; x < gridCols; x++) {
+        newTiles.push({
+          id: `t_${x}_${y}`,
+          x,
+          y,
+          type: 'empty',
+          width: 1,
+          height: 1,
+          isOrigin: true,
+        });
+      }
+    }
+    setTiles((prev) => [...prev, ...newTiles]);
+    setGridRows(newRows);
+    if (onShowToast) onShowToast(`📐 하단으로 ${count}행 도안 블록이 추가되었습니다. (현재 ${gridCols}×${newRows})`);
+  };
+
+  const expandColsLeft = (count: number = 1) => {
+    if (gridCols + count > 50) {
+      if (onShowToast) onShowToast('⚠️ 도안 가로 최대 크기는 50칸입니다.');
+      return;
+    }
+    pushHistory();
+    const newCols = gridCols + count;
+    setTiles((prev) => {
+      const shifted = prev.map((t) => {
+        const newX = t.x + count;
+        let newParentId = t.parentOriginId;
+        if (t.parentOriginId) {
+          const match = t.parentOriginId.match(/^t_(\d+)_(\d+)$/);
+          if (match) {
+            const ox = parseInt(match[1], 10);
+            const oy = parseInt(match[2], 10);
+            newParentId = `t_${ox + count}_${oy}`;
+          }
+        }
+        return {
+          ...t,
+          x: newX,
+          id: `t_${newX}_${t.y}`,
+          parentOriginId: newParentId,
+        };
+      });
+      const leftPadding: SandboxTile[] = [];
+      for (let y = 0; y < gridRows; y++) {
+        for (let x = 0; x < count; x++) {
+          leftPadding.push({
+            id: `t_${x}_${y}`,
+            x,
+            y,
+            type: 'empty',
+            width: 1,
+            height: 1,
+            isOrigin: true,
+          });
+        }
+      }
+      return [...leftPadding, ...shifted];
+    });
+    setGridCols(newCols);
+    if (onShowToast) onShowToast(`📐 좌측으로 ${count}열 도안 블록이 추가되었습니다. (현재 ${newCols}×${gridRows})`);
+  };
+
+  const expandRowsTop = (count: number = 1) => {
+    if (gridRows + count > 35) {
+      if (onShowToast) onShowToast('⚠️ 도안 세로 최대 크기는 35칸입니다.');
+      return;
+    }
+    pushHistory();
+    const newRows = gridRows + count;
+    setTiles((prev) => {
+      const shifted = prev.map((t) => {
+        const newY = t.y + count;
+        let newParentId = t.parentOriginId;
+        if (t.parentOriginId) {
+          const match = t.parentOriginId.match(/^t_(\d+)_(\d+)$/);
+          if (match) {
+            const ox = parseInt(match[1], 10);
+            const oy = parseInt(match[2], 10);
+            newParentId = `t_${ox}_${oy + count}`;
+          }
+        }
+        return {
+          ...t,
+          y: newY,
+          id: `t_${t.x}_${newY}`,
+          parentOriginId: newParentId,
+        };
+      });
+      const topPadding: SandboxTile[] = [];
+      for (let y = 0; y < count; y++) {
+        for (let x = 0; x < gridCols; x++) {
+          topPadding.push({
+            id: `t_${x}_${y}`,
+            x,
+            y,
+            type: 'empty',
+            width: 1,
+            height: 1,
+            isOrigin: true,
+          });
+        }
+      }
+      return [...topPadding, ...shifted];
+    });
+    setGridRows(newRows);
+    if (onShowToast) onShowToast(`📐 상단으로 ${count}행 도안 블록이 추가되었습니다. (현재 ${gridCols}×${newRows})`);
+  };
+
+  const handleSetGridDimensions = (targetCols: number, targetRows: number) => {
+    const clampedCols = Math.max(8, Math.min(50, targetCols));
+    const clampedRows = Math.max(6, Math.min(35, targetRows));
+
+    if (clampedCols === gridCols && clampedRows === gridRows) {
+      setIsDimensionModalOpen(false);
+      return;
+    }
+
+    pushHistory();
+
+    const cutElements = tiles.filter(
+      (t) => t.type !== 'empty' && (t.x >= clampedCols || t.y >= clampedRows)
+    );
+    if (cutElements.length > 0) {
+      if (onShowToast) onShowToast(`⚠️ 도안 축소로 인해 ${cutElements.length}개의 블록이 잘립니다. (실행 취소 가능)`);
+    }
+
+    setTiles((prev) => {
+      const preserved = prev.filter((t) => t.x < clampedCols && t.y < clampedRows);
+      const preservedKeys = new Set(preserved.map((t) => `${t.x},${t.y}`));
+
+      const added: SandboxTile[] = [];
+      for (let y = 0; y < clampedRows; y++) {
+        for (let x = 0; x < clampedCols; x++) {
+          if (!preservedKeys.has(`${x},${y}`)) {
+            added.push({
+              id: `t_${x}_${y}`,
+              x,
+              y,
+              type: 'empty',
+              width: 1,
+              height: 1,
+              isOrigin: true,
+            });
+          }
+        }
+      }
+      return [...preserved, ...added];
+    });
+
+    setGridCols(clampedCols);
+    setGridRows(clampedRows);
+    setIsDimensionModalOpen(false);
+    if (onShowToast) onShowToast(`📐 도안 규격이 ${clampedCols}×${clampedRows} 칸으로 변경되었습니다.`);
+  };
+
+  const handleAddBlockChunk = (chunkW: number, chunkH: number, direction: 'right' | 'bottom' | 'top' | 'left') => {
+    if (direction === 'right') {
+      expandColsRight(chunkW);
+    } else if (direction === 'bottom') {
+      expandRowsBottom(chunkH);
+    } else if (direction === 'top') {
+      expandRowsTop(chunkH);
+    } else if (direction === 'left') {
+      expandColsLeft(chunkW);
+    }
+    setIsDimensionModalOpen(false);
   };
 
   // Find Tile by coords
@@ -888,7 +1141,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     });
 
     const totalSeats = vipSeats + rSeats + sSeats + stdSeats + wheelSeats + customSeats;
-    const pathRatio = Math.round((pathCount / (GRID_COLS * GRID_ROWS)) * 100);
+    const pathRatio = Math.round((pathCount / (gridCols * gridRows)) * 100);
 
     return {
       vipSeats,
@@ -929,7 +1182,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
       const h = def.height || 1;
 
       // Check bounds
-      if (x + w > GRID_COLS || y + h > GRID_ROWS) {
+      if (x + w > gridCols || y + h > gridRows) {
         if (onShowToast) onShowToast(`⚠️ 블록 크기(${w}×${h})가 캔버스 범위를 벗어납니다.`);
         return;
       }
@@ -1102,7 +1355,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     const x = selectedTile.x;
     const y = selectedTile.y;
 
-    if (x + newW > GRID_COLS || y + newH > GRID_ROWS) {
+    if (x + newW > gridCols || y + newH > gridRows) {
       if (onShowToast) onShowToast(`⚠️ 변경할 크기(${newW}×${newH})가 캔버스 범위를 벗어납니다.`);
       return;
     }
@@ -1210,7 +1463,7 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         const ny = current.y + dir.dy;
         const key = `${nx},${ny}`;
 
-        if (nx >= 0 && nx < GRID_COLS && ny >= 0 && ny < GRID_ROWS && !visited.has(key)) {
+        if (nx >= 0 && nx < gridCols && ny >= 0 && ny < gridRows && !visited.has(key)) {
           const neighbor = tileMap.get(key);
           if (neighbor && isWalkable(neighbor)) {
             visited.add(key);
@@ -1283,7 +1536,15 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
     pushHistory();
     setIsSimulating(false);
     setSelectedTileId(null);
-    const newTiles = PRESET_TEMPLATES[key]();
+    let newCols = 20;
+    let newRows = 12;
+    if (key === 'blank') {
+      newCols = gridCols;
+      newRows = gridRows;
+    }
+    const newTiles = key === 'blank' ? PRESET_TEMPLATES.blank(newCols, newRows) : PRESET_TEMPLATES[key]();
+    setGridCols(newCols);
+    setGridRows(newRows);
     setTiles(newTiles);
     if (onShowToast) {
       const names = {
@@ -1300,8 +1561,8 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
   const handleCopyJson = () => {
     const exportData = {
       venue: venueName,
-      cols: GRID_COLS,
-      rows: GRID_ROWS,
+      cols: gridCols,
+      rows: gridRows,
       customBlocks,
       stats,
       tiles: tiles.filter((t) => t.type !== 'empty'),
@@ -1597,6 +1858,24 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
 
         {/* Global Studio Actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Blueprint Dimensions & Block Expansion Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setCustomTargetCols(gridCols);
+              setCustomTargetRows(gridRows);
+              setIsDimensionModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm rounded-xl border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:scale-95"
+            title="도안 크기 조절 및 블록 단위 확장"
+          >
+            <Maximize2 className="w-4 h-4 text-stone-950" />
+            <span>도안 규격 & 블럭 증설</span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-stone-950 text-amber-300 rounded-md font-mono">
+              {gridCols}×{gridRows}
+            </span>
+          </button>
+
           {/* Create Custom Block Button */}
           <button
             type="button"
@@ -2031,6 +2310,40 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
           </button>
         </div>
 
+        {/* Quick Blueprint Block Expand Buttons */}
+        <div className="hidden sm:flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-stone-300 shadow-2xs">
+          <span className="text-stone-400 font-bold font-mono text-[10px]">도안 블록:</span>
+          <button
+            type="button"
+            onClick={() => expandColsRight(1)}
+            className="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95"
+            title="우측으로 1열 블럭 추가"
+          >
+            +1열
+          </button>
+          <button
+            type="button"
+            onClick={() => expandRowsBottom(1)}
+            className="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95"
+            title="하단으로 1행 블럭 추가"
+          >
+            +1행
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setChunkWidth(3);
+              setChunkHeight(3);
+              setDimModalTab('chunk');
+              setIsDimensionModalOpen(true);
+            }}
+            className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-md font-bold text-[11px] cursor-pointer transition-all active:scale-95 flex items-center gap-0.5"
+            title="3×3 등 구역 블록 추가 모달 열기"
+          >
+            <span>+구역 블럭</span>
+          </button>
+        </div>
+
         {/* Center: Zoom Level & Cell Size Presets */}
         <div className="flex items-center gap-1.5">
           <span className="text-stone-400 font-bold font-mono">타일 크기:</span>
@@ -2101,23 +2414,98 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         <div id="sandbox-canvas-viewport" className="flex-1 min-w-0 space-y-2">
           <div
             ref={gridContainerRef}
-            className="p-4 bg-stone-900 border-3 border-stone-900 rounded-3xl shadow-[5px_5px_0px_#1c1917] overflow-auto max-h-[720px] select-none"
+            className="p-3 sm:p-5 bg-stone-900 border-3 border-stone-900 rounded-3xl shadow-[5px_5px_0px_#1c1917] overflow-auto max-h-[740px] select-none"
           >
-            <div
-              className="grid gap-[3px] bg-stone-800 p-3 rounded-2xl mx-auto"
-              style={{
-                width: 'max-content',
-                gridTemplateColumns: `repeat(${GRID_COLS}, ${cellSize}px)`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, ${cellSize}px)`,
-              }}
-            >
-              {tiles.map((t) => renderTileVisual(t))}
+            {/* TOP EDGE BLOCK EXPANDER */}
+            <div className="flex items-center justify-center gap-2 pb-2.5">
+              <button
+                type="button"
+                onClick={() => expandRowsTop(1)}
+                className="px-3 py-1 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                title="도안 상단에 1행 블록 추가"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+                <span>+ 상단 1행 블록 추가</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => expandRowsTop(3)}
+                className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 font-bold text-[11px] rounded-xl border border-dashed border-stone-700 cursor-pointer"
+                title="상단에 3행 블록 추가"
+              >
+                +3행
+              </button>
+            </div>
+
+            {/* MIDDLE ROW: LEFT EXPANDER + CANVAS + RIGHT EXPANDER */}
+            <div className="flex items-center justify-center gap-2.5">
+              {/* LEFT EDGE BLOCK EXPANDER */}
+              <button
+                type="button"
+                onClick={() => expandColsLeft(1)}
+                className="py-10 px-2 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                title="도안 좌측에 1열 블록 추가"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="[writing-mode:vertical-lr] text-[11px] tracking-widest font-black">
+                  +좌측 1열
+                </span>
+              </button>
+
+              {/* INNER GRID */}
+              <div
+                className="grid gap-[3px] bg-stone-800 p-3 rounded-2xl mx-auto shadow-inner"
+                style={{
+                  width: 'max-content',
+                  gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
+                  gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+                }}
+              >
+                {tiles.map((t) => renderTileVisual(t))}
+              </div>
+
+              {/* RIGHT EDGE BLOCK EXPANDER */}
+              <button
+                type="button"
+                onClick={() => expandColsRight(1)}
+                className="py-10 px-2 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                title="도안 우측에 1열 블록 추가"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+                <span className="[writing-mode:vertical-lr] text-[11px] tracking-widest font-black">
+                  +우측 1열
+                </span>
+              </button>
+            </div>
+
+            {/* BOTTOM EDGE BLOCK EXPANDER */}
+            <div className="flex items-center justify-center gap-2 pt-2.5">
+              <button
+                type="button"
+                onClick={() => expandRowsBottom(1)}
+                className="px-3 py-1 bg-stone-800/90 hover:bg-amber-400 hover:text-stone-950 text-stone-300 font-bold text-xs rounded-xl border border-dashed border-stone-600 transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                title="도안 하단에 1행 블록 추가"
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+                <span>+ 하단 1행 블록 추가</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => expandRowsBottom(3)}
+                className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 font-bold text-[11px] rounded-xl border border-dashed border-stone-700 cursor-pointer"
+                title="하단에 3행 블록 추가"
+              >
+                +3행
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-stone-500 px-2 pt-1">
-            <span>💡 <strong>Tip:</strong> 마우스 드래그로 길을 그리고, 커스텀 블록을 원하는 위치에 배치하세요. 블록을 클릭하면 우측 창에서 크기와 이름을 즉시 수정할 수 있습니다.</span>
-            <span className="text-amber-600 font-bold">1타일 = 약 1.5m 규격 (현재 타일: {cellSize}px)</span>
+          <div className="flex flex-wrap items-center justify-between text-xs text-stone-500 px-2 pt-1 gap-2">
+            <span>💡 <strong>Tip:</strong> 캔버스 테두리의 <code>[+블록 추가]</code> 버튼을 누르면 원하는 방향으로 도안 블록이 착착 덧붙여집니다.</span>
+            <div className="flex items-center gap-3">
+              <span className="text-purple-700 font-mono font-bold">도안 규격: {gridCols}×{gridRows}칸 ({gridCols * gridRows}블럭)</span>
+              <span className="text-amber-600 font-bold font-mono">1타일 = 약 1.5m ({cellSize}px)</span>
+            </div>
           </div>
         </div>
 
@@ -2333,6 +2721,304 @@ export const CustomGridSandboxStudio: React.FC<CustomGridSandboxStudioProps> = (
         )}
 
       </div>
+
+      {/* ========================================================================= */}
+      {/* 6. MODAL: BLUEPRINT DIMENSIONS & ZONE BLOCK EXTENSION */}
+      {/* ========================================================================= */}
+      {isDimensionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white border-3 border-stone-900 rounded-3xl max-w-lg w-full p-6 shadow-[8px_8px_0px_#1c1917] space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b-2 border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-400 border-2 border-stone-900 rounded-xl shadow-2xs">
+                  <Maximize2 className="w-5 h-5 text-stone-950" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-stone-950">도안 크기 조절 & 블럭 증설</h3>
+                  <p className="text-[11px] text-stone-500 font-bold">
+                    현재 규격: {gridCols}칸 × {gridRows}칸 (총 {gridCols * gridRows} 블럭)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDimensionModalOpen(false)}
+                className="p-1.5 hover:bg-stone-100 rounded-xl text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1.5 rounded-2xl border border-stone-300">
+              <button
+                type="button"
+                onClick={() => setDimModalTab('chunk')}
+                className={`py-2 px-3 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  dimModalTab === 'chunk'
+                    ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-2xs'
+                    : 'text-stone-600 hover:bg-white/60'
+                }`}
+              >
+                <Box className="w-3.5 h-3.5" />
+                <span>🧱 블록 단위로 덧붙이기</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDimModalTab('dimensions')}
+                className={`py-2 px-3 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  dimModalTab === 'dimensions'
+                    ? 'bg-amber-400 text-stone-950 border-2 border-stone-900 shadow-2xs'
+                    : 'text-stone-600 hover:bg-white/60'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>📐 전체 규격 직접 조절</span>
+              </button>
+            </div>
+
+            {/* TAB 1: ADD BLOCK CHUNK */}
+            {dimModalTab === 'chunk' && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-xs font-black text-stone-800 mb-1.5">
+                    1. 추가할 도안 블럭 크기 선택
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: '1×1 슬림', w: 1, h: 1 },
+                      { label: '2×2 미니', w: 2, h: 2 },
+                      { label: '3×3 추천', w: 3, h: 3 },
+                      { label: '5×5 대형', w: 5, h: 5 },
+                    ].map((b) => (
+                      <button
+                        key={b.label}
+                        type="button"
+                        onClick={() => {
+                          setChunkWidth(b.w);
+                          setChunkHeight(b.h);
+                        }}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          chunkWidth === b.w && chunkHeight === b.h
+                            ? 'bg-stone-900 text-amber-300 border-stone-900 font-black shadow-2xs'
+                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
+                        }`}
+                      >
+                        <div className="font-mono text-sm">{b.w}×{b.h}</div>
+                        <div className="text-[10px] opacity-80 mt-0.5">{b.label}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom W x H stepper */}
+                  <div className="flex items-center justify-between gap-2 mt-2 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <span className="text-stone-500 font-bold text-[11px]">직접 지정:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-stone-700">가로:</span>
+                      <button
+                        type="button"
+                        onClick={() => setChunkWidth((p) => Math.max(1, p - 1))}
+                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono font-black text-sm px-1">{chunkWidth}</span>
+                      <button
+                        type="button"
+                        onClick={() => setChunkWidth((p) => Math.min(10, p + 1))}
+                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-stone-700">세로:</span>
+                      <button
+                        type="button"
+                        onClick={() => setChunkHeight((p) => Math.max(1, p - 1))}
+                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono font-black text-sm px-1">{chunkHeight}</span>
+                      <button
+                        type="button"
+                        onClick={() => setChunkHeight((p) => Math.min(10, p + 1))}
+                        className="w-6 h-6 rounded bg-white border border-stone-300 hover:bg-stone-200 font-bold"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-stone-800 mb-1.5">
+                    2. 도안에 덧붙일 확장 방향 선택
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { dir: 'right', label: '➡️ 우측으로 덧붙이기', desc: `가로 +${chunkWidth}칸 확장` },
+                      { dir: 'bottom', label: '⬇️ 하단으로 덧붙이기', desc: `세로 +${chunkHeight}칸 확장` },
+                      { dir: 'top', label: '⬆️ 상단으로 덧붙이기', desc: `세로 +${chunkHeight}칸 확장` },
+                      { dir: 'left', label: '⬅️ 좌측으로 덧붙이기', desc: `가로 +${chunkWidth}칸 확장` },
+                    ].map((d) => (
+                      <button
+                        key={d.dir}
+                        type="button"
+                        onClick={() => setChunkDirection(d.dir as any)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          chunkDirection === d.dir
+                            ? 'bg-purple-900 text-amber-300 border-purple-900 font-black shadow-2xs'
+                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-xs">{d.label}</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">{d.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview Box */}
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-stone-500 font-bold">확장 예상 도안 규격: </span>
+                    <span className="font-mono font-black text-stone-900">
+                      {chunkDirection === 'right' || chunkDirection === 'left' ? gridCols + chunkWidth : gridCols}
+                      {' × '}
+                      {chunkDirection === 'bottom' || chunkDirection === 'top' ? gridRows + chunkHeight : gridRows}
+                      칸
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-amber-200 text-amber-950 font-mono font-bold rounded-lg text-[11px]">
+                    +{chunkDirection === 'right' || chunkDirection === 'left' ? chunkWidth * gridRows : chunkHeight * gridCols} 블럭
+                  </span>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="button"
+                  onClick={() => handleAddBlockChunk(chunkWidth, chunkHeight, chunkDirection)}
+                  className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black rounded-xl border-2 border-stone-900 shadow-[3px_3px_0px_#1c1917] cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Box className="w-4 h-4" />
+                  <span>선택한 방향으로 도안 블럭 추가하기</span>
+                </button>
+              </div>
+            )}
+
+            {/* TAB 2: TOTAL DIMENSIONS & PRESETS */}
+            {dimModalTab === 'dimensions' && (
+              <div className="space-y-4 text-xs">
+                {/* Steppers for Columns & Rows */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-stone-50 border border-stone-300 p-3 rounded-2xl space-y-2">
+                    <label className="text-xs font-black text-stone-800 flex items-center justify-between">
+                      <span>가로 칸 수 (Columns)</span>
+                      <span className="text-stone-400 font-mono">8~50</span>
+                    </label>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setCustomTargetCols((p) => Math.max(8, p - 1))}
+                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono text-xl font-black text-stone-900">{customTargetCols}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomTargetCols((p) => Math.min(50, p + 1))}
+                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-stone-50 border border-stone-300 p-3 rounded-2xl space-y-2">
+                    <label className="text-xs font-black text-stone-800 flex items-center justify-between">
+                      <span>세로 칸 수 (Rows)</span>
+                      <span className="text-stone-400 font-mono">6~35</span>
+                    </label>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setCustomTargetRows((p) => Math.max(6, p - 1))}
+                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono text-xl font-black text-stone-900">{customTargetRows}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomTargetRows((p) => Math.min(35, p + 1))}
+                        className="w-8 h-8 rounded-xl bg-white border border-stone-300 hover:bg-stone-200 font-black text-base cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Real-world scale calculation */}
+                <div className="p-3 bg-stone-100 rounded-xl border border-stone-200 flex items-center justify-between text-[11px] text-stone-600">
+                  <span>📐 실제 실측 환산 면적 (1타일 = 1.5m):</span>
+                  <span className="font-bold text-stone-900 font-mono">
+                    약 {Math.round(customTargetCols * 1.5)}m × {Math.round(customTargetRows * 1.5)}m ({Math.round(customTargetCols * customTargetRows * 2.25)}㎡)
+                  </span>
+                </div>
+
+                {/* 1-Click Dimension Presets */}
+                <div>
+                  <label className="block text-xs font-black text-stone-800 mb-1.5">
+                    공간 규격 프리셋 원클릭 설정
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { name: '소형 팝업/스토어', cols: 14, rows: 10 },
+                      { name: '표준 중형 전시관', cols: 20, rows: 12 },
+                      { name: '대형 페스티벌홀', cols: 26, rows: 16 },
+                      { name: '특대 컨벤션홀', cols: 32, rows: 20 },
+                      { name: '초대형 엑스포', cols: 40, rows: 24 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => {
+                          setCustomTargetCols(preset.cols);
+                          setCustomTargetRows(preset.rows);
+                        }}
+                        className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
+                          customTargetCols === preset.cols && customTargetRows === preset.rows
+                            ? 'bg-amber-100 border-amber-500 font-black text-stone-950'
+                            : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px]">{preset.name}</div>
+                        <div className="font-mono text-[10px] text-stone-500">{preset.cols} × {preset.rows}칸</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="button"
+                  onClick={() => handleSetGridDimensions(customTargetCols, customTargetRows)}
+                  className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-amber-300 font-black rounded-xl border-2 border-stone-900 shadow-[3px_3px_0px_#f59e0b] cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Sliders className="w-4 h-4 text-amber-400" />
+                  <span>설정한 규격({customTargetCols}×{customTargetRows})으로 도안 크기 적용하기</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* MODAL: 새 커스텀 블록 직접 만들기 (이름, 크기, 좌석, 색상 완벽 지원) */}
