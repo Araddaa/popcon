@@ -80,6 +80,9 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
       if (tabParam && ['users', 'event', 'map', 'seats', 'policies', 'audit'].includes(tabParam)) {
         setActiveTab(tabParam as any);
       }
+      if (p.get('kopisModal') === 'true') {
+        setIsKopisModalOpen(true);
+      }
     }
   }, []);
 

@@ -121,19 +121,38 @@ export const UniversalSpaceStudio: React.FC<UniversalSpaceStudioProps> = ({
   eventCategory = 'performance',
   onShowToast,
 }) => {
-  // Determine initial space mode based on eventCategory
-  const initialMode = useMemo<SpaceMode>(() => {
+  const [currentMode, setCurrentMode] = useState<SpaceMode>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const m = p.get('spaceMode') as SpaceMode;
+      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival'].includes(m)) {
+        return m;
+      }
+    }
     if (eventCategory === 'popup') return 'popup';
     if (eventCategory === 'collab_cafe') return 'cafe';
     if (eventCategory === 'exhibition') return 'exhibition';
     if (eventCategory === 'festival') return 'festival';
     return 'theatre';
-  }, [eventCategory]);
+  });
 
-  const [currentMode, setCurrentMode] = useState<SpaceMode>(initialMode);
+  // Read URL query parameter for direct tab/mode linking
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const m = p.get('spaceMode') as SpaceMode;
+      if (m && ['theatre', 'popup', 'cafe', 'exhibition', 'festival'].includes(m)) {
+        setCurrentMode(m);
+      }
+    }
+  }, []);
 
   // Sync mode if eventCategory changes from parent
   React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('spaceMode')) return; // Explicit URL param has highest priority
+    }
     if (eventCategory === 'popup') setCurrentMode('popup');
     else if (eventCategory === 'collab_cafe') setCurrentMode('cafe');
     else if (eventCategory === 'exhibition') setCurrentMode('exhibition');
