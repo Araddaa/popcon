@@ -193,16 +193,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right: Search Button (검색 버튼을 누르면 검색창으로 전환) + 찜 + 알림 + 내 티켓 + 프로필 */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             
-            {/* Quick Admin Console Button */}
-            <button
-              onClick={onOpenOrganizerStudio}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs border-2 border-stone-900 shadow-[2px_2px_0px_#1c1917] cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
-              title="통합 관리자 콘솔 (회원 제재 / 행사 / 좌석배치 / 지도)"
-            >
-              <Shield className="w-3.5 h-3.5 text-stone-950" />
-              <span>관리자 콘솔</span>
-            </button>
-
             {/* 돋보기 버튼만 제공 (클릭 시 중앙 화면이 검색창으로 전환) */}
             <button
               onClick={() => handleNavigate('search')}
@@ -349,27 +339,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <Heart className="w-3.5 h-3.5 text-rose-500" />
                         <span>관심 행사 찜 ({wishlistCount})</span>
                       </button>
-                      <button
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          onOpenOrganizerStudio();
-                        }}
-                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-amber-50 flex items-center gap-2 font-bold text-stone-900 cursor-pointer"
-                      >
-                        <Shield className="w-3.5 h-3.5 text-rose-600" />
-                        <span>통합 관리자 콘솔 (회원/행사/좌석)</span>
-                      </button>
-                      <a
-                        href="/admin"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-stone-100 flex items-center justify-between font-bold text-stone-700 cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Settings className="w-3.5 h-3.5 text-purple-600" />
-                          <span>관리자 전체화면 페이지</span>
-                        </span>
-                        <ExternalLink className="w-3 h-3 text-stone-400" />
-                      </a>
                       <button
                         onClick={() => {
                           setUserMenuOpen(false);
