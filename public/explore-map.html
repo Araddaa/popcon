@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>POP-CON 지도 탐색</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* User GPS Marker */
+    .my-loc-container {
+      position: relative;
+      width: 22px;
+      height: 22px;
+    }
+    .my-loc-pulse {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.45);
+      animation: myLocRadar 2s infinite ease-out;
+    }
+    .my-loc-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #10b981;
+      border: 3px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .my-loc-label {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #064e3b;
+      color: #ecfdf5;
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 9999px;
+      white-space: nowrap;
+      border: 1px solid #34d399;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    @keyframes myLocRadar {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+      100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+    }
+
+    /* Event Pin Marker */
+    .ev-pin-wrap {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+    }
+    .ev-pin {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ffffff;
+      color: #1c1917;
+      border: 2px solid #1c1917;
+      border-radius: 9999px;
+      padding: 4px 10px 4px 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .ev-pin:hover {
+      transform: translateX(-50%) scale(1.06);
+      z-index: 500;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.3);
+    }
+    .ev-pin.selected {
+      background: #1c1917;
+      color: #fde047;
+      border-color: #f59e0b;
+      transform: translateX(-50%) scale(1.1);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.4), 0 0 0 3px rgba(245, 158, 11, 0.4);
+    }
+    .ev-pin::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid #1c1917;
+    }
+    .ev-pin.selected::after {
+      border-top-color: #f59e0b;
+    }
+    .ev-cat-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #ffffff;
+      flex-shrink: 0;
+    }
+    .ev-title {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ev-dday {
+      font-size: 9.5px;
+      font-weight: 900;
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: #f5f5f4;
+      color: #44403c;
+    }
+    .ev-pin.selected .ev-dday {
+      background: #f59e0b;
+      color: #1c1917;
+    }
+
+    /* Top Bar */
+    .map-top-bar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .map-search-pill {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(8px);
+      border: 2px solid #1c1917;
+      border-radius: 14px;
+      padding: 3px 5px 3px 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 300px;
+      flex: 1;
+    }
+    .map-search-pill input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1c1917;
+      width: 100%;
+      font-family: inherit;
+    }
+    .map-search-pill button {
+      background: #1c1917;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .map-search-pill button:hover {
+      background: #f59e0b;
+      color: #1c1917;
+    }
+
+    .map-layer-switch {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 3px;
+      border-radius: 12px;
+      display: flex;
+      gap: 2px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 2px solid #1c1917;
+      pointer-events: auto;
+      flex-shrink: 0;
+    }
+    .layer-btn {
+      border: none;
+      background: transparent;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #57534e;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .layer-btn.active {
+      background: #1c1917;
+      color: #ffffff;
+    }
+
+    /* Research This Area Floating Pill */
+    .research-btn-wrap {
+      position: absolute;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: none;
+    }
+    .research-btn-wrap.visible {
+      display: block;
+    }
+    .research-btn {
+      background: #1c1917;
+      color: #fde047;
+      border: 2px solid #f59e0b;
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 11.5px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .research-btn:hover {
+      background: #292524;
+    }
+
+    /* Bottom Bar */
+    .map-bottom-bar {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .status-pill {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid #1c1917;
+      border-radius: 12px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #1c1917;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: auto;
+    }
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+    }
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid #1c1917;
+      border-radius: 9999px;
+      padding: 5px 11px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #1c1917;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ctrl-btn:hover {
+      background: #fef3c7;
+    }
+    .ctrl-btn.gps {
+      background: #059669;
+      color: #ffffff;
+      border-color: #064e3b;
+    }
+    .ctrl-btn.gps:hover {
+      background: #047857;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Top Controls -->
+  <div class="map-top-bar">
+    <div class="map-layer-switch">
+      <button class="layer-btn active" id="btnRoad">Google 지도</button>
+      <button class="layer-btn" id="btnSat">위성</button>
+      <button class="layer-btn" id="btnOsm">상세 로드</button>
+    </div>
+  </div>
+
+  <!-- Research current area button -->
+  <div class="research-btn-wrap" id="researchBtnWrap">
+    <button type="button" class="research-btn" id="btnResearchArea">
+      <span>🔄</span>
+      <span>현 지도 위치에서 행사 찾기</span>
+    </button>
+  </div>
+
+  <!-- Bottom Controls -->
+  <div class="map-bottom-bar">
+    <div class="status-pill" id="countBadge">
+      📍 지도 탐색 준비 중...
+    </div>
+
+    <div class="action-btn-group">
+      <button type="button" class="ctrl-btn" id="btnFitAll" title="표시된 행사 전체 보기">
+        <span>🗺️</span>
+        <span>전체 보기</span>
+      </button>
+      <button type="button" class="ctrl-btn gps" id="btnMyLoc" title="내 주변 중심으로 이동">
+        <span>🎯</span>
+        <span>내 주변</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const initLat = parseFloat(params.get('lat') || '37.5425');
+    const initLng = parseFloat(params.get('lng') || '127.0573');
+    const initZoom = parseInt(params.get('zoom') || '14', 10);
+
+    const map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([initLat, initLng], initZoom);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const roadLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 });
+    const satLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { maxZoom: 20 });
+    const osmLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' });
+
+    roadLayer.addTo(map);
+    let currentLayer = roadLayer;
+
+    const btnRoad = document.getElementById('btnRoad');
+    const btnSat = document.getElementById('btnSat');
+    const btnOsm = document.getElementById('btnOsm');
+
+    function switchLayer(newLayer, activeBtn) {
+      map.removeLayer(currentLayer);
+      newLayer.addTo(map);
+      currentLayer = newLayer;
+      [btnRoad, btnSat, btnOsm].forEach(b => b.classList.remove('active'));
+      activeBtn.classList.add('active');
+    }
+    btnRoad.addEventListener('click', () => switchLayer(roadLayer, btnRoad));
+    btnSat.addEventListener('click', () => switchLayer(satLayer, btnSat));
+    btnOsm.addEventListener('click', () => switchLayer(osmLayer, btnOsm));
+
+    const CATEGORY_META = {
+      popup: { emoji: '🛍️', color: '#e11d48' },
+      performance: { emoji: '🎭', color: '#7e22ce' },
+      exhibition: { emoji: '🎨', color: '#059669' },
+      collab_cafe: { emoji: '☕', color: '#ea580c' },
+      movie: { emoji: '🎬', color: '#0284c7' },
+      festival: { emoji: '✨', color: '#d97706' }
+    };
+
+    const DICT_LOCATIONS = [
+      { keywords: ['성수', '성수동', '에스팩토리', '서울숲'], name: '성수동 / 서울숲', lat: 37.5425, lng: 127.0573 },
+      { keywords: ['더현대', '여의도', '여의나루'], name: '더현대 서울 (여의도)', lat: 37.5258, lng: 126.9284 },
+      { keywords: ['홍대', '연남', '상수', '상상마당'], name: '홍대 / 연남', lat: 37.5546, lng: 126.9235 },
+      { keywords: ['잠실', '샤롯데', '석촌'], name: '잠실 / 샤롯데씨어터', lat: 37.5113, lng: 127.0998 },
+      { keywords: ['한남', '이태원', '도산', '압구정'], name: '한남 / 도산', lat: 37.5245, lng: 127.0365 },
+      { keywords: ['신도림', '디큐브'], name: '신도림 디큐브시티', lat: 37.5089, lng: 126.8891 },
+      { keywords: ['서초', '예술의전당', '강남'], name: '서초 / 예술의전당', lat: 37.4789, lng: 127.0125 },
+      { keywords: ['광화문', '종로', '경복궁', '대학로', '혜화'], name: '광화문 / 종로 / 대학로', lat: 37.5758, lng: 126.9825 },
+      { keywords: ['부산', '광안리', '해운대'], name: '부산 광안리 / 해운대', lat: 35.1532, lng: 129.1186 }
+    ];
+
+    let markersLayer = L.layerGroup().addTo(map);
+    let myMarker = null;
+    let radiusCircle = null;
+    let currentState = {
+      myLat: initLat,
+      myLng: initLng,
+      myLabel: '내 기준 위치',
+      radiusMeters: 0,
+      events: [],
+      selectedEventId: null
+    };
+    let suppressMovePrompt = false;
+
+    function zoomForRadius(radiusMeters) {
+      if (!radiusMeters || radiusMeters <= 0) return 12;
+      if (radiusMeters <= 600) return 16;
+      if (radiusMeters <= 1500) return 15;
+      if (radiusMeters <= 3500) return 14;
+      return 12;
+    }
+
+    function renderMapState(state, shouldFly) {
+      currentState = state;
+      markersLayer.clearLayers();
+
+      // Update my location marker
+      if (myMarker) map.removeLayer(myMarker);
+      myMarker = L.marker([state.myLat, state.myLng], {
+        zIndexOffset: 900,
+        icon: L.divIcon({
+          className: 'empty-icon',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+          html: `
+            <div class="my-loc-container">
+              <div class="my-loc-pulse"></div>
+              <div class="my-loc-dot"></div>
+              <div class="my-loc-label">📍 ${state.myLabel || '기준 위치'}</div>
+            </div>
+          `
+        })
+      }).addTo(map);
+
+      // Update radius circle
+      if (radiusCircle) {
+        map.removeLayer(radiusCircle);
+        radiusCircle = null;
+      }
+      if (state.radiusMeters && state.radiusMeters > 0) {
+        radiusCircle = L.circle([state.myLat, state.myLng], {
+          radius: state.radiusMeters,
+          color: '#059669',
+          weight: 2,
+          dashArray: '6, 6',
+          fillColor: '#10b981',
+          fillOpacity: 0.1
+        }).addTo(map);
+      }
+
+      // Render event pins
+      const list = state.events || [];
+      list.forEach((ev) => {
+        const meta = CATEGORY_META[ev.category] || { emoji: '📌', color: '#1c1917' };
+        const isSel = state.selectedEventId === ev.id;
+        const shortTitle = ev.title.length > 14 ? ev.title.slice(0, 14) + '…' : ev.title;
+
+        const marker = L.marker([ev.lat, ev.lng], {
+          zIndexOffset: isSel ? 1200 : 100,
+          icon: L.divIcon({
+            className: 'empty-icon',
+            iconSize: [0, 0],
+            html: `
+              <div class="ev-pin-wrap">
+                <div class="ev-pin ${isSel ? 'selected' : ''}">
+                  <span class="ev-cat-dot" style="background:${meta.color}">${meta.emoji}</span>
+                  <span class="ev-title">${shortTitle}</span>
+                  <span class="ev-dday">${ev.distanceText || ev.dDay}</span>
+                </div>
+              </div>
+            `
+          })
+        });
+
+        marker.on('click', () => {
+          window.parent.postMessage({
+            type: 'POPCON_EXPLORE_SELECT_EVENT',
+            eventId: ev.id
+          }, '*');
+        });
+
+        marker.addTo(markersLayer);
+      });
+
+      document.getElementById('countBadge').innerText =
+        `📍 표시된 행사 ${list.length}개` +
+        (state.radiusMeters > 0 ? ` (반경 ${state.radiusMeters >= 1000 ? (state.radiusMeters / 1000) + 'km' : state.radiusMeters + 'm'})` : ' (전체 지역)');
+
+      if (shouldFly && typeof state.centerLat === 'number' && typeof state.centerLng === 'number') {
+        suppressMovePrompt = true;
+        document.getElementById('researchBtnWrap').classList.remove('visible');
+        const targetZoom = state.focusEvent ? 16 : zoomForRadius(state.radiusMeters);
+        map.flyTo([state.centerLat, state.centerLng], targetZoom, { duration: 0.6 });
+        setTimeout(() => { suppressMovePrompt = false; }, 800);
+      }
+    }
+
+    map.on('dragend zoomend', () => {
+      if (!suppressMovePrompt) {
+        document.getElementById('researchBtnWrap').classList.add('visible');
+      }
+    });
+
+    document.getElementById('btnResearchArea').addEventListener('click', () => {
+      const c = map.getCenter();
+      document.getElementById('researchBtnWrap').classList.remove('visible');
+      window.parent.postMessage({
+        type: 'POPCON_EXPLORE_MAP_MOVED',
+        lat: parseFloat(c.lat.toFixed(5)),
+        lng: parseFloat(c.lng.toFixed(5)),
+        label: '지도 선택 위치'
+      }, '*');
+    });
+
+    document.getElementById('btnMyLoc').addEventListener('click', () => {
+      document.getElementById('researchBtnWrap').classList.remove('visible');
+      window.parent.postMessage({ type: 'POPCON_EXPLORE_REQUEST_MY_LOCATION' }, '*');
+    });
+
+    document.getElementById('btnFitAll').addEventListener('click', () => {
+      const list = currentState.events || [];
+      if (list.length === 0) {
+        map.flyTo([currentState.myLat, currentState.myLng], 13, { duration: 0.6 });
+        return;
+      }
+      const pts = list.map(e => [e.lat, e.lng]);
+      pts.push([currentState.myLat, currentState.myLng]);
+      suppressMovePrompt = true;
+      map.fitBounds(pts, { padding: [45, 45], maxZoom: 15 });
+      setTimeout(() => { suppressMovePrompt = false; }, 800);
+    });
+
+    window.handleMapSearch = function(e) {
+      e.preventDefault();
+      const q = document.getElementById('mapSearchInput').value.trim().toLowerCase();
+      if (!q) return;
+
+      const found = DICT_LOCATIONS.find(item =>
+        item.keywords.some(k => q.includes(k)) || item.name.toLowerCase().includes(q)
+      );
+
+      if (found) {
+        document.getElementById('researchBtnWrap').classList.remove('visible');
+        window.parent.postMessage({
+          type: 'POPCON_EXPLORE_MAP_MOVED',
+          lat: found.lat,
+          lng: found.lng,
+          label: found.name
+        }, '*');
+        return;
+      }
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=kr&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const resLat = parseFloat(data[0].lat);
+            const resLng = parseFloat(data[0].lon);
+            const name = data[0].display_name.split(',')[0];
+            document.getElementById('researchBtnWrap').classList.remove('visible');
+            window.parent.postMessage({
+              type: 'POPCON_EXPLORE_MAP_MOVED',
+              lat: resLat,
+              lng: resLng,
+              label: name
+            }, '*');
+          } else {
+            alert('검색된 지역이 없습니다. 성수, 홍대, 더현대, 잠실, 신도림, 광화문 등으로 검색해 보세요.');
+          }
+        })
+        .catch(() => {
+          alert('지도 검색 연결에 일시적인 오류가 발생했습니다.');
+        });
+    };
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'POPCON_EXPLORE_UPDATE') {
+        renderMapState(e.data.payload, !!e.data.flyTo);
+      }
+    });
+
+    // Notify parent iframe is ready
+    window.parent.postMessage({ type: 'POPCON_EXPLORE_READY' }, '*');
+  </script>
+</body>
+</html>
